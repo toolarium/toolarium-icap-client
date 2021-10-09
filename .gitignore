@@ -1,0 +1,69 @@
+# Ignore cache and depdendency directories
+.gradle
+.cache
+.npm
+.node_repl_history
+.yarn-integrity
+.eslintcache
+.grunt
+.lock-wscript
+.vuepress/dist
+.serverless
+.nyc_output
+.env
+node_modules/
+jspm_packages/
+coverage/
+
+# Ignore build output directory
+bin/
+build/
+build-eclipse/
+.next
+.nuxt
+
+# distribution directory, e.g. nuxt
+dist
+
+# Ignore logs output directory
+logs/
+*.log
+*debug*.log*
+*info*.log*
+*error*.log*
+
+# Ignore temp output directory
+temp/
+
+# Ignore runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Java build artifacts class files
+*.class
+
+# tar packages
+*.tgz
+*.tar.gz
+
+# mac / OSX files
+.DS_Store
+
+# IDE / Editor
+.idea
+*.ipr
+*.iml
+*.iws
+
+# NetBeans
+nb-configuration.xml
+
+# Visual Studio Code
+.vscode
+.factorypath
+
+# vi swap files
+*.swp
+*.swo
