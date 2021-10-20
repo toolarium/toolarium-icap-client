@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE suppressions PUBLIC
+    "-//Puppy Crawl//DTD Suppressions 1.1//EN"
+    "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+
+<suppressions>
+    <!-- hidden files and folders -->
+    <suppress files="[/\\]\..+" checks=".*"/>
+
+    <!-- generated files and folders -->
+    <suppress files="[/\\]build[/\\]generated[/\\]sources[/\\]common-gradle-build[/\\]" checks=".*"/>
+
+    <!-- image files -->
+    <suppress files=".+\.(?:png|gif|jpg|jpeg)$" checks=".*"/>
+
+    <!-- model files -->
+    <suppress files=".+\.(?:mdzip|mdr|dez|apk)$" checks=".*"/>
+
+    <!-- security files -->
+    <suppress files="(keystore)$|(.+\.(?:p12|crt|kdbx|policy))$" checks=".*"/>
+
+    <!-- non java -->
+    <suppress files=".+\.(?:html|sql|css)$" checks=".*"/>
+
+    <!-- non java -->
+    <suppress files=".+\.(?:txt|bak|properties|template|xml|xsl|csv|stl|opt|xls|xlsx|sh|bat|cmd)$" checks=".*"/>
+</suppressions>

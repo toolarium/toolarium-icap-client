@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   logback.xml
+
+   Copyright by toolarium-icap-client, all rights reserved.
+-->
+<configuration>
+  <!-- console appender -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%-30(%d{ISO8601} - %1.-1level - %-6.6t{5}) - %-80.80(%logger#%M:%L{79}) - %-15.15X{logInformation} | %msg%n%xEx{5}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- colored console appender -->
+  <appender name="COLOR_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- <withJansi>true</withJansi>-->
+    <encoder>
+      <pattern>%-30(%blue(%d{ISO8601}) - %highlight(%1.-1level) - %black(%-6.6t{5})) - %cyan(%-80.80(%logger#%M:%L){79}) - %blue(%-15.15X{logInformation}) | %msg%n%xEx{5}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- simple file appender -->
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>build/fp-icap-client.log</file>
+    <append>false</append>
+    <encoder>
+      <pattern>%-30(%d{ISO8601} - %1.-1level - %-6.6t{5}) - %-100.100(%logger#%M:%L){99} - %-30.30X{logInformation} | %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- By default only local project logs in debug -->
+  <logger name="com.github" level="WARN"/>
+  <logger name="com.github.toolarium.icap.client" level="INFO"/>
+
+  <root level="WARN">
+    <!-- <appender-ref ref="CONSOLE" /> -->
+    <appender-ref ref="COLOR_CONSOLE" />
+    <appender-ref ref="FILE" />
+  </root>
+</configuration>
