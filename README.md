@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/toolarium/toolarium-icap-client)](https://github.com/toolarium/toolarium-icap-client/blob/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/0.9.0)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.0.0/jar)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.0.0)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.0.0/jar)
 [![javadoc](https://javadoc.io/badge2/com.github.toolarium/toolarium-icap-client/javadoc.svg)](https://javadoc.io/doc/com.github.toolarium/toolarium-icap-client)
 
 # toolarium-icap-client
