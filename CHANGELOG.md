@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [ 1.0.1 ] - 2021-10-22
 ### Added
-- Support for connecting by a url string ICAPClientFactory, e.g. icap://localhost:1344/srv_clamav
+- Support for connecting by a url string ICAPClientFactory, e.g. icap://<hostname>:<port>/srv_clamav.
 
 ## [ 1.0.0 ] - 2021-10-21
 ### Changed
