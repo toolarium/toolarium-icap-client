@@ -4,7 +4,7 @@
 
 # toolarium-icap-client
 
-Implements the an ICAP client compliant with [RFC 3507](https://www.ietf.org/rfc/rfc3507.txt)
+Implements the an ICAP client in java compliant with [RFC 3507](https://www.ietf.org/rfc/rfc3507.txt)
 
 
 ## Built With
