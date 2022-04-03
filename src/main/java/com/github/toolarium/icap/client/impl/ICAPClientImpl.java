@@ -294,8 +294,9 @@ public class ICAPClientImpl implements ICAPClient {
         
         MessageDigest inputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
         DigestInputStream inputstream = new DigestInputStream(resource.getResourceBody(), inputMessageDigest); 
-        inputstream.read(chunk);
-        icapSocket.write(chunk);
+        int readBytes = inputstream.read(chunk);
+        long totalReadBytes = readBytes;
+        icapSocket.write(chunk, 0, readBytes);
         icapSocket.write(NEWLINE);
         if (resource.getResourceLength() <= previewSize) {
             icapSocket.write("0; ieof" + ICAP_END_SEPARATOR);
@@ -320,9 +321,12 @@ public class ICAPClientImpl implements ICAPClient {
         // sending remaining part of file
         if (resource.getResourceLength() > previewSize) {
             byte[] buffer = new byte[bufferSize];
-            while ((inputstream.read(buffer)) != -1) {
-                icapSocket.write((Integer.toHexString(buffer.length) + NEWLINE));
-                icapSocket.write(buffer);
+            readBytes = -1;
+            while ((readBytes = inputstream.read(buffer)) != -1) {
+                totalReadBytes += readBytes;                    
+                LOG.debug(requestIdentifier + "Send next block of " + readBytes + " bytes (total sent: " + totalReadBytes + " bytes)...");
+                icapSocket.write((Integer.toHexString(readBytes) + NEWLINE));
+                icapSocket.write(buffer, 0, readBytes);
                 icapSocket.write(NEWLINE);
             }
             
