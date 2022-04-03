@@ -86,6 +86,19 @@ public class ICAPSocket implements AutoCloseable {
         os.write(bytes);
     }
 
+    
+    /**
+     * Write some bytes
+     *
+     * @param bytes the bytes to write
+     * @param offset the offset
+     * @param length the length
+     * @throws IOException In case of an I/O error
+     */
+    public void write(byte[] bytes, int offset, int length) throws IOException {
+        os.write(bytes, offset, length);
+    }
+
 
     /**
      * Flush the output stream
