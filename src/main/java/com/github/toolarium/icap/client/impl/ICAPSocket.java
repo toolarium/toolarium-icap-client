@@ -5,6 +5,7 @@
  */
 package com.github.toolarium.icap.client.impl;
 
+import com.github.toolarium.icap.client.ICAPConnectionManager;
 import com.github.toolarium.icap.client.dto.ICAPConstants;
 import com.github.toolarium.icap.client.dto.ICAPHeaderInformation;
 import com.github.toolarium.icap.client.impl.parser.ICAPParser;
@@ -39,19 +40,21 @@ public class ICAPSocket implements AutoCloseable {
     /**
      * Constructor for ICAPSocket
      *
+     * @param connectionManager the connection manager
      * @param requestIdentifier the request identifier
      * @param host the host
      * @param port the port
      * @param service the service
+     * @param secureConnection true to establish a secured connection
      * @throws IOException In case of an I/O error
      */
-    public ICAPSocket(String requestIdentifier, String host, int port, String service) throws IOException {
+    public ICAPSocket(ICAPConnectionManager connectionManager, String requestIdentifier, String host, int port, String service, boolean secureConnection) throws IOException {
         this.requestIdentifier = requestIdentifier;
         this.connection = "" + host + ":" + port + "/" + service;
         LOG.debug(requestIdentifier + "Send create socket to [" + connection + "]");
 
         try {
-            socket = new Socket(host, port);
+            socket = connectionManager.createSocket(host, port, secureConnection);
             is = new ChunkedInputStream(requestIdentifier, socket.getInputStream());
             os = socket.getOutputStream();
         } catch (IOException e) {

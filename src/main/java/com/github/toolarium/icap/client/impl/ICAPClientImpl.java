@@ -6,6 +6,7 @@
 package com.github.toolarium.icap.client.impl;
 
 import com.github.toolarium.icap.client.ICAPClient;
+import com.github.toolarium.icap.client.ICAPConnectionManager;
 import com.github.toolarium.icap.client.dto.ICAPConstants;
 import com.github.toolarium.icap.client.dto.ICAPHeaderInformation;
 import com.github.toolarium.icap.client.dto.ICAPMode;
@@ -45,6 +46,7 @@ public class ICAPClientImpl implements ICAPClient {
     private static final String ICAP_END_SEPARATOR = NEWLINE + NEWLINE;
     private static final String HTTP_END_SEPARATOR = "0" + ICAP_END_SEPARATOR;
 
+    private ICAPConnectionManager connectionManager;
     private ICAPServiceInformation serviceInformation;
     private ICAPRemoteServiceConfiguration remoteServiceConfiguration;
     private int bufferSize = 8192;
@@ -56,8 +58,10 @@ public class ICAPClientImpl implements ICAPClient {
      *
      * @param serviceInformation the service information
      * @param remoteServiceConfiguration the remote service configuration
+     * @param connectionManager the connection manager
      */
-    public ICAPClientImpl(ICAPServiceInformation serviceInformation, ICAPRemoteServiceConfiguration remoteServiceConfiguration) {
+    public ICAPClientImpl(ICAPConnectionManager connectionManager, ICAPServiceInformation serviceInformation, ICAPRemoteServiceConfiguration remoteServiceConfiguration) {
+        this.connectionManager = connectionManager;
         this.serviceInformation = serviceInformation;
         this.remoteServiceConfiguration = remoteServiceConfiguration;
     }
@@ -83,7 +87,7 @@ public class ICAPClientImpl implements ICAPClient {
         
         validateRequestInformation(requestInformation);
         final String requestIdentifier = createRequestIdentifier("options", null);
-        try (ICAPSocket icapSocket = new ICAPSocket(requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.getServiceName())) {
+        try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.getServiceName(), serviceInformation.isSecureConnection())) {
             icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
                            + "Host: " + serviceInformation.getHostName() + NEWLINE 
                            + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE 
@@ -179,7 +183,7 @@ public class ICAPClientImpl implements ICAPClient {
         }
 
         File resourceResponse = File.createTempFile(requestIdentifier, ".tmp");
-        try (ICAPSocket icapSocket = new ICAPSocket(requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.getServiceName())) {
+        try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.getServiceName(), serviceInformation.isSecureConnection())) {
             ICAPHeaderInformation icapHeaderInformation = processResource(requestIdentifier, icapSocket, requestInformation, resource, resourceResponse);
             icapHeaderInformation.getHeaders().remove(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE);
             
