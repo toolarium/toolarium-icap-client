@@ -13,5 +13,6 @@ package com.github.toolarium.icap.client.dto;
  */
 public enum ICAPMode {
     RESPMOD,
-    REQMOD;
+    REQMOD,
+    FILEMOD;
 }
