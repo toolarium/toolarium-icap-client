@@ -212,7 +212,7 @@ public class ICAPClientImpl implements ICAPClient {
                         }
                     }
 
-                    String msg = "Thread found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
+                    String msg = "Threat found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
                     LOG.info(requestIdentifier + msg);
                     throw new ContentBlockedException(msg, icapHeaderInformation, errorContent);                    
                 } else if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)

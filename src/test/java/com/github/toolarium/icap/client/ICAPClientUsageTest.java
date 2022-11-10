@@ -113,7 +113,7 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             // log output looks like:
             // E1C57BCF - Valid service [200/OK], allow 204: true, available methods: [RESPMOD, REQMOD]
             // DA054425 - Validate resource (username: user, source: file, resource: test-virus-file.com, length: 70)
-            // DA054425 - Thread found in resource (username: user, source: file, resource: test-virus-file.com, length: 70, http-status: 200):
+            // DA054425 - Threat found in resource (username: user, source: file, resource: test-virus-file.com, length: 70, http-status: 200):
             // - X-Infection-Found: [Type=0, Resolution=2, Threat=Eicar-Signature]
             // - X-Violations-Found: [1, -, Eicar-Signature, 0, 0]
             // - X-Request-Message-Digest: [{SHA-256}8b3f191819931d1f2cef7289239b5f77c00b079847b9c2636e56854d1e5eff71]
@@ -172,7 +172,7 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             // log output looks like:
             // E1C57BCF - Valid service [200/OK], allow 204: true, available methods: [RESPMOD, REQMOD]
             // DA054425 - Validate resource (username: user, source: file, resource: test-virus-file.com, length: 70)
-            // DA054425 - Thread found in resource (username: user, source: file, resource: test-virus-file.com, length: 70, http-status: 200):
+            // DA054425 - Threat found in resource (username: user, source: file, resource: test-virus-file.com, length: 70, http-status: 200):
             // - X-Infection-Found: [Type=0, Resolution=2, Threat=Eicar-Signature]
             // - X-Violations-Found: [1, -, Eicar-Signature, 0, 0]
             // - X-Request-Message-Digest: [{SHA-256}8b3f191819931d1f2cef7289239b5f77c00b079847b9c2636e56854d1e5eff71]
