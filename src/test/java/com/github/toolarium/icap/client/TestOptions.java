@@ -11,8 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.toolarium.icap.client.dto.ICAPMode;
 import com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration;
+
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 
@@ -31,7 +34,12 @@ public class TestOptions extends AbstractICAPClientTest {
     @Test
     public void testValidOptions() throws IOException {
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = getICAPClient().options();
-        assertTrue(Arrays.equals(ICAPMode.values(), remoteServiceConfiguration.getOptionMethods()));
+        
+        List<ICAPMode> list = Arrays.asList(ICAPMode.values());
+        for (ICAPMode mode : remoteServiceConfiguration.getOptionMethods()) {
+            assertTrue(list.contains(mode));
+        }
+        
         assertEquals(1024, remoteServiceConfiguration.getServerPreviewSize());
     }
 
