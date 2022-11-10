@@ -11,11 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.toolarium.icap.client.dto.ICAPMode;
 import com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 

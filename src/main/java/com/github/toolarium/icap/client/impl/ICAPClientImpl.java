@@ -88,7 +88,7 @@ public class ICAPClientImpl implements ICAPClient {
         validateRequestInformation(requestInformation);
         final String requestIdentifier = createRequestIdentifier("options", null);
         try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.getServiceName(), serviceInformation.isSecureConnection())) {
-            icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
+            icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
                            + "Host: " + serviceInformation.getHostName() + NEWLINE 
                            + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE 
                            + ICAPConstants.HEADER_KEY_ENCAPSULATED + ": null-body=0" + NEWLINE + NEWLINE);
@@ -282,7 +282,9 @@ public class ICAPClientImpl implements ICAPClient {
             previewSize = (int) resource.getResourceLength();
         }
 
-        String requestBuffer = "RESPMOD icap://" + serviceInformation.getHostName() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
+        
+        
+        String requestBuffer = "RESPMOD icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
                         + "Host: " + serviceInformation.getHostName() + NEWLINE
                         + "Connection:  close" + NEWLINE 
                         + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE 
