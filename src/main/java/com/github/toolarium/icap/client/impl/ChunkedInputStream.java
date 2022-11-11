@@ -7,6 +7,7 @@ package com.github.toolarium.icap.client.impl;
 
 import com.github.toolarium.icap.client.dto.ICAPConstants;
 import com.github.toolarium.icap.client.impl.parser.ICAPParser;
+import com.github.toolarium.icap.client.util.HexDump;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -139,6 +140,10 @@ public class ChunkedInputStream extends BufferedInputStream {
         int readBytes = 0;
         try {
             readBytes = super.read(b, off, sizeToRead);
+            
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(requestIdentifier + "Raw data\n" + HexDump.getInstance().hexDump(new String(b, off, off + readBytes)));
+            }
             
             if (maxChunkSize <= 0) {
                 super.read(new byte[3], 0, 3); // read 0\r\n
