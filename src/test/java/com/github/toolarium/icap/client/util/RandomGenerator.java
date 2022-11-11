@@ -120,6 +120,21 @@ public final class RandomGenerator {
 
     
     /** 
+     * Generate a random string
+     * @param size the size
+     * @return a random string
+     */
+    public String getRandomString(int size) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < size; i++) {
+            builder.append(getRandomCharacter('0', 'Z'));
+        }
+        
+        return builder.toString();
+    }
+
+    
+    /** 
      * Generate a random byte
      * @return  a random byte
      */

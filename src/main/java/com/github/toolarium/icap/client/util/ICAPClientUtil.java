@@ -27,6 +27,10 @@ import java.text.StringCharacterIterator;
  * @author Patrick Meier
  */
 public final class ICAPClientUtil {
+    /** INTERNAL COPY BUFFER */
+    public static final int INTERNAL_BUFFER_SIZE = 8192;
+
+
     /**
      * Private class, the only instance of the singelton which will be created by accessing the holder class.
      *
@@ -161,18 +165,64 @@ public final class ICAPClientUtil {
      * @throws IOException In case of an I/O error
      */
     public long copy(InputStream source, OutputStream target) throws IOException {
+        return copy(source, target, 0, -1);
+    }
+
+    
+    /**
+     * Copy
+     *
+     * @param source the source
+     * @param target the target
+     * @param inputOffset the offset
+     * @param inputLength the length
+     * @return the copied bytes
+     * @throws IOException In case of an I/O error
+     */
+    public long copy(InputStream source, OutputStream target, int inputOffset, int inputLength) throws IOException {
         if (source == null || target == null) {
             return 0;
         }
-        
+
         long totalSize = 0;
-        byte[] buf = new byte[8192];
-        int length;
-        while ((length = source.read(buf)) > 0) {
-            target.write(buf, 0, length);
-            totalSize += length;
+        int offset = inputOffset;
+        int maxLength = inputLength;
+        byte[] buf = new byte[INTERNAL_BUFFER_SIZE];
+        int bufferLength = buf.length;
+
+        if (offset < 0) {
+            offset = 0;
         }
         
+        if (maxLength > 0 && maxLength < bufferLength) {
+            bufferLength = maxLength;
+        }
+
+        if (offset > 0) { // ignore offset
+            if (maxLength > 0 && maxLength < offset) {
+                // offset is bigger then length, just ignore bytes
+                source.read(buf, 0, maxLength);
+                return 0; 
+            }
+            source.read(buf, 0, offset);
+
+            if (maxLength > 0) { // subtract the number of read bytes
+                bufferLength = bufferLength - offset;
+                maxLength = maxLength - offset;
+            }
+        }
+        
+        int length;
+        while ((length = source.read(buf, 0, bufferLength)) > 0) {
+            target.write(buf, 0, length);
+            totalSize += length;
+            
+            if ((maxLength > 0) && (totalSize >= maxLength)) {
+                break;
+            }
+        }
+
+        target.flush();
         return totalSize;
     }
 
