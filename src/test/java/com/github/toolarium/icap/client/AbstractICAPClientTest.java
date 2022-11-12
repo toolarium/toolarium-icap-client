@@ -138,8 +138,9 @@ public abstract class AbstractICAPClientTest {
      * Assert umodified file
      *
      * @param icapHeaderInformation the ICAP header information
+     * @return the ICAP header information
      */
-    protected void assertAllow204Unmodified(ICAPHeaderInformation icapHeaderInformation) {
+    protected ICAPHeaderInformation assertAllow204Unmodified(ICAPHeaderInformation icapHeaderInformation) {
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(204, icapHeaderInformation.getStatus());
         assertEquals("1.0", icapHeaderInformation.getVersion());
@@ -147,6 +148,7 @@ public abstract class AbstractICAPClientTest {
         assertEquals("[Server, Connection, ISTag]", "" + icapHeaderInformation.getHeaders().keySet());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get("Server"));
         assertTrue(icapHeaderInformation.getHeaders().get("ISTag").toString().startsWith("[CI0001-"));
+        return icapHeaderInformation; 
     }
 
 
@@ -154,18 +156,58 @@ public abstract class AbstractICAPClientTest {
      * Assert umodified file
      *
      * @param icapHeaderInformation the ICAP header information
+     * @return the ICAP header information
      * @throws IOException In case of an I/O error
      */
-    protected void assertUnmodifiedFile(ICAPHeaderInformation icapHeaderInformation) throws IOException {
+    protected ICAPHeaderInformation assertUnmodifiedFile(ICAPHeaderInformation icapHeaderInformation) throws IOException {
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
         assertEquals("1.0", icapHeaderInformation.getVersion());
         assertEquals("OK", icapHeaderInformation.getMessage());
-        assertEquals("[Server, Connection, ISTag, Encapsulated, X-Request-Message-Digest, X-Response-Message-Digest, X-Resource-Identical-Content]", "" + icapHeaderInformation.getHeaders().keySet());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get("Server"));
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        assertTrue(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
+        
+        if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST)) {
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_SERVER));
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_CONNECTION));
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ISTAG));
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ENCAPSULATED));
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST));
+            assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST));
+            assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
+            assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
+            
+            if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
+                assertTrue(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
+            }
+        } else {
+            assertEquals("[Server, Connection, ISTag, Encapsulated]", "" + icapHeaderInformation.getHeaders().keySet());
+        }
+        
         assertTrue(icapHeaderInformation.getHeaders().get("ISTag").toString().startsWith("[CI0001-"));
+        return icapHeaderInformation; 
+    }
+    
+    
+    /**
+     * Assert eicar test virus
+     *
+     * @param icapHeaderInformation the ICAP header information
+     * @return the ICAP header information
+     * @throws IOException In case of an I/O error
+     */
+    protected ICAPHeaderInformation assertEicar(ICAPHeaderInformation icapHeaderInformation) throws IOException {
+        assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND));
+        assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND));
+        assertEquals(3, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND).size());
+        assertEquals("Type=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND).get(0));
+        assertEquals("Resolution=2", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND).get(1));
+        assertEquals("Threat=Eicar-Signature", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND).get(2));
+        assertEquals(5, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).size());
+        assertEquals("1", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).get(0));
+        assertEquals("-", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).get(1));
+        assertEquals("Eicar-Signature", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).get(2));
+        assertEquals("0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).get(3));
+        assertEquals("0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND).get(4));
+        return icapHeaderInformation;
     }
 }

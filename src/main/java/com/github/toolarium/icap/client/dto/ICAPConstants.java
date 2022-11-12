@@ -13,6 +13,9 @@ package com.github.toolarium.icap.client.dto;
  */
 public interface ICAPConstants {
     // HTTP header headers
+    String HEADER_KEY_SERVER = "Server";
+    String HEADER_KEY_CONNECTION = "Connection";
+    String HEADER_KEY_ISTAG = "ISTag";
     String HEADER_KEY_CONTENT_LENGTH = "Content-Length";
     String HEADER_KEY_TRANSFER_ENCODING = "Transfer-Encoding";
     String HEADER_KEY_ENCAPSULATED = "Encapsulated";

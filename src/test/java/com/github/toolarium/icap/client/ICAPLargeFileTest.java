@@ -90,6 +90,7 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
      */
     @Test
     public void testPDFFileResponse3() throws IOException, ContentBlockedException {
+        assertAllow204Unmodified(validateResource(ICAPMode.REQMOD, SRC_TEST_RESOURCES + "FileNeedsToBeSanitized-Virus.pdf"));
         assertAllow204Unmodified(validateResource(ICAPMode.RESPMOD, SRC_TEST_RESOURCES + "FileNeedsToBeSanitized-Virus.pdf"));
     }    
 
@@ -107,7 +108,8 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
         File file = new RandomGenerator().createRandomFile("build/large-scan-file.txt", 3 * 1024 * 1024, false, false);   
         setAllow204(true);
 
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "File", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeTextFileAllow204", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeTextFileAllow204", file.getName(), new FileInputStream(file), file.length()));
     }    
 
 
@@ -123,7 +125,8 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
         File file = new RandomGenerator().createRandomFile("build/large-scan-file.txt", 3 * 1024 * 1024, false, false);   
         setAllow204(false);
 
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "File", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeTextFile", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeTextFile", file.getName(), new FileInputStream(file), file.length()));
     }    
 
     
@@ -137,8 +140,9 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
     @Test
     public void testLargeBinaryFileAllow204() throws IOException, ContentBlockedException, NoSuchAlgorithmException {
         File file = new RandomGenerator().createRandomFile("build/large-scan-file.bin", 3 * 1024 * 1024, false, true);   
-        setAllow204(false);
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "File", file.getName(), new FileInputStream(file), file.length()));
+        setAllow204(true);
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeBinaryFileAllow204", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeBinaryFileAllow204", file.getName(), new FileInputStream(file), file.length()));
     }    
 
 
@@ -154,7 +158,30 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
         File file = new RandomGenerator().createRandomFile("build/large-scan-file.bin", 3 * 1024 * 1024, false, true);   
         setAllow204(false);
 
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "File", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeBinaryFile", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeBinaryFile", file.getName(), new FileInputStream(file), file.length()));
+    }    
+
+
+    /**
+     * Test large binary file and disabled allow 204 
+     *
+     * @throws IOException In case of an I/O error
+     * @throws ContentBlockedException In case the content is blocked
+     * @throws NoSuchAlgorithmException In case of not supported algorithm 
+     */
+    @Test
+    public void testLargeBinaryWithVirusFileAllow204() throws IOException, ContentBlockedException, NoSuchAlgorithmException {
+        File file = new RandomGenerator().createRandomFile("build/large-scan-file-virus.bin", 3 * 1024 * 1024, true, false);
+        try (FileOutputStream outputstream = new FileOutputStream(file, true)) {
+            outputstream.write((byte)'\r');
+            outputstream.write((byte)'\n');
+            outputstream.write(ICAPTestVirusConstants.REQUEST_BODY_VIRUS.getBytes());
+        }
+        
+        setAllow204(true);
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeBinaryWithVirusFileAllow204", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeBinaryWithVirusFileAllow204", file.getName(), new FileInputStream(file), file.length()));
     }    
 
 
@@ -175,6 +202,7 @@ public class ICAPLargeFileTest extends AbstractICAPClientTest {
         }
         
         setAllow204(false);
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "File", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testLargeBinaryWithVirusFile", file.getName(), new FileInputStream(file), file.length()));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testLargeBinaryWithVirusFile", file.getName(), new FileInputStream(file), file.length()));
     }    
 }

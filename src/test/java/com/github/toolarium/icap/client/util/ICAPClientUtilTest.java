@@ -30,12 +30,9 @@ public class ICAPClientUtilTest {
     public void copyTest() throws IOException {
         assertEquals("", assertCopy(""));
         assertEquals(DATA, assertCopy(DATA));
-        assertEquals(DATA.substring(10, 20), assertCopy(DATA, 10, 20));
         
         String data = new RandomGenerator().getRandomString(4 * ICAPClientUtil.INTERNAL_BUFFER_SIZE);
         assertEquals(data, assertCopy(data));
-        assertEquals(data.substring(10, 20), assertCopy(data, 10, 20));
-       
     }
 
 
@@ -47,31 +44,12 @@ public class ICAPClientUtilTest {
      * @throws IOException In case of an error
      */
     protected String assertCopy(String input) throws IOException {
-        return assertCopy(input, 0, -1);
-    }
-
-    
-    /**
-     * Assert copy
-     *
-     * @param input the input
-     * @param offset the offset
-     * @param inputLength the length
-     * @return the result
-     * @throws IOException In case of an error
-     */
-    protected String assertCopy(String input, int offset, int inputLength) throws IOException {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        long copiedBytes = ICAPClientUtil.getInstance().copy(new ByteArrayInputStream(input.getBytes("UTF-8")), stream, offset, inputLength);
+        long copiedBytes = ICAPClientUtil.getInstance().copy(new ByteArrayInputStream(input.getBytes("UTF-8")), stream);
         String result = new String(stream.toByteArray(), "UTF-8");
         
-        int length = inputLength;
-        if (length < 0) {
-            length = input.length();
-        }
-
         assertEquals(result.length(), copiedBytes);
-        assertEquals(input.substring(offset, length), result);
+        assertEquals(input, result);
         return result;
     }
 }

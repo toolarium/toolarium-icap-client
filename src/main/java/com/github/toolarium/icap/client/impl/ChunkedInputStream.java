@@ -142,7 +142,7 @@ public class ChunkedInputStream extends BufferedInputStream {
             readBytes = super.read(b, off, sizeToRead);
             
             if (LOG.isDebugEnabled()) {
-                LOG.debug(requestIdentifier + "Raw data\n" + HexDump.getInstance().hexDump(new String(b, off, off + readBytes)));
+                LOG.debug(requestIdentifier + "Raw data\n" + HexDump.getInstance().hexDump(new String(b, off, sizeToRead)));
             }
             
             if (maxChunkSize <= 0) {
@@ -207,7 +207,10 @@ public class ChunkedInputStream extends BufferedInputStream {
             }
         }
         
-        LOG.debug(requestIdentifier + "HTTP headers:\n" + orgHeader);        
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(requestIdentifier + "HTTP headers:\n" + orgHeader);
+        }
+        
         return headers;
     }
 
@@ -253,6 +256,12 @@ public class ChunkedInputStream extends BufferedInputStream {
             if (line != null && line.length() == 0) {
                 line = readLine(new ByteArrayOutputStream());
             }
+        }
+
+        if (line.toString().startsWith("GET") || line.toString().startsWith("POST")) {
+            readHeader();
+            readHeader();
+            line = readLine(new ByteArrayOutputStream());
         }
 
         if (line.endsWith(";")) {
