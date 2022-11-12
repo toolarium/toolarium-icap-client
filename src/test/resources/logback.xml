@@ -31,6 +31,7 @@
 
   <!-- By default only local project logs in debug -->
   <logger name="com.github" level="WARN"/>
+  <logger name="com.github.toolarium.icap.client.impl.ChunkedInputStream" level="INFO"/>
   <logger name="com.github.toolarium.icap.client" level="INFO"/>
 
   <root level="WARN">
