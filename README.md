@@ -127,3 +127,9 @@ c-icap-client -v -f entrypoint.sh -s "srv_clamav" -w 1024 -req http://request -d
 # stop service
 docker stop icap-server
 ```
+
+## Additional resources found on the web
+[ICAP filtering](https://www.openidentityplatform.org/blog/icap-filter-openig)
+[airlock & icap](https://docs.airlock.com/gateway/7.4/#data/icap.html)
+[Freshcalm](https://linux.die.net/man/1/freshclam)
+[free container](https://github.com/freeipa/freeipa-container)

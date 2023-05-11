@@ -93,7 +93,7 @@ public final class ICAPClientUtil {
     public byte[] readResourceAndClose(InputStream is) throws IOException {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            copy(is, out);
+            is.transferTo(out);
             return out.toByteArray();
         } finally {
             try {
@@ -155,31 +155,6 @@ public final class ICAPClientUtil {
         return String.format("%.1f %ciB", value / 1024.0, ci.current());
     }
     
-    
-    /**
-     * Copy
-     *
-     * @param source the source
-     * @param target the target
-     * @return the copied bytes
-     * @throws IOException In case of an I/O error
-     */
-    public long copy(InputStream source, OutputStream target) throws IOException {
-        if (source == null || target == null) {
-            return 0;
-        }
-        
-        long totalSize = 0;
-        byte[] buf = new byte[INTERNAL_BUFFER_SIZE];
-        int length;
-        while ((length = source.read(buf)) > 0) {
-            target.write(buf, 0, length);
-            totalSize += length;
-        }
-        
-        return totalSize;
-    }
-
     
     /**
      * Create a message digest

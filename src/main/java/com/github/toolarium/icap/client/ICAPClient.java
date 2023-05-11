@@ -64,4 +64,12 @@ public interface ICAPClient {
      */
     ICAPHeaderInformation validateResource(ICAPMode mode, ICAPRequestInformation requestInformation, ICAPResource resource) throws IOException, ContentBlockedException;
 
+    
+    /**
+     * Define if the client support verify and compare input and output content
+     *
+     * @param supportCompareVerifyIdenticalContent true to support; otherwise false (by default = false)
+     * @return this client
+     */
+    ICAPClient supportCompareVerifyIdenticalContent(boolean supportCompareVerifyIdenticalContent);
 }

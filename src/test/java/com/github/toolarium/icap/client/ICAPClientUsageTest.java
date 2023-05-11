@@ -5,6 +5,8 @@
  */
 package com.github.toolarium.icap.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.github.toolarium.icap.client.dto.ICAPConstants;
@@ -78,7 +80,7 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             ICAPHeaderInformation icapHeaderInformation = e.getICAPHeaderInformation();
             icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND);
             icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND);
-            
+
             // The e.getContent contains the returned error information from the ICAP-Server. 
             // It can be ignored as long as the resource is blocked; otherwise it gives a well structured response.
             e.getContent();
@@ -471,6 +473,61 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND);
             icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND);
             
+            // The e.getContent contains the returned error information from the ICAP-Server. 
+            // It can be ignored as long as the resource is blocked; otherwise it gives a well structured response.
+            e.getContent();
+            
+            fail();
+        }
+    }
+
+
+    /**
+     * The usage how to use the client library 
+     */
+    @Test
+    public void usage_SupportCompareVerifyIdenticalContent() {
+        // the ICAP-Server information
+        final String hostName = LOCALHOST;
+        final int port = 1344;
+        final String serviceName = "srv_clamav";
+        
+        // the user, request source and the resource
+        final String username = "usera";
+        final String requestSource = "filea";
+        final File file = new File("build/test-file.com");
+
+        try {
+            ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(ICAPTestVirusConstants.REQUEST_BODY_CLEAN.getBytes());
+            ICAPHeaderInformation icapHeaderInformation = ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName).supportCompareVerifyIdenticalContent(true)
+                 .validateResource(ICAPMode.RESPMOD, 
+                                   new ICAPRequestInformation(username, requestSource).setAllow204(false),
+                                   new ICAPResource(file.getName(), resourceInputStream, ICAPTestVirusConstants.REQUEST_BODY_CLEAN.length()));
+            
+            // If no exception is thrown the resource can be used and is valid. 
+
+            // log output looks like:
+            // DD8DEE46 - Valid service [200/OK], allow 204: true, available methods: [RESPMOD, REQMOD]
+            // 30AC31B0 - Validate resource (username: user, source: file, resource: test-file.com, length: 71)
+            // 30AC31B0 - Valid resource (username: user, source: file, resource: test-file.com, length: 71, http-status: 204).
+            assertTrue(icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT));
+            assertEquals("[true]", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT));
+        } catch (IOException ioe) { // I/O error
+            LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
+            fail();
+        } catch (ContentBlockedException e) {
+            
+            // !!! The resource has to be blocked !!! 
+            
+            // The e.getMessage() gives technical the proper information. It's already logged by the library.
+            @SuppressWarnings("unused")
+            String msg = e.getMessage(); 
+
+            // The ICAP header contains structured information about virus.
+            ICAPHeaderInformation icapHeaderInformation = e.getICAPHeaderInformation();
+            icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND);
+            icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND);
+
             // The e.getContent contains the returned error information from the ICAP-Server. 
             // It can be ignored as long as the resource is blocked; otherwise it gives a well structured response.
             e.getContent();

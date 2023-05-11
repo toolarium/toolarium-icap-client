@@ -51,6 +51,7 @@ public class ICAPClientImpl implements ICAPClient {
     private ICAPRemoteServiceConfiguration remoteServiceConfiguration;
     private int bufferSize = 8192;
     private String messageDigestAlgorithm = "SHA-256";
+    private boolean supportCompareVerifyIdenticalContent;
 
 
     /**
@@ -64,6 +65,17 @@ public class ICAPClientImpl implements ICAPClient {
         this.connectionManager = connectionManager;
         this.serviceInformation = serviceInformation;
         this.remoteServiceConfiguration = remoteServiceConfiguration;
+        this.supportCompareVerifyIdenticalContent = false;
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPClient#supportCompareVerifyIdenticalContent(boolean)
+     */
+    @Override    
+    public ICAPClient supportCompareVerifyIdenticalContent(boolean supportCompareVerifyIdenticalContent) {
+        this.supportCompareVerifyIdenticalContent = supportCompareVerifyIdenticalContent;
+        return this;
     }
 
     
@@ -162,14 +174,7 @@ public class ICAPClientImpl implements ICAPClient {
             icapMode = inputMode;
         }
 
-        String resourceName = null;
-        Long resourceLength = null;
-        if (resource != null) {
-            resourceName = resource.getResourceName().trim();
-            resourceLength = resource.getResourceLength();
-        }
-        
-        final String sourceRequest = requestInformation.prepareSourceRequest(resourceName, resourceLength);
+        final String sourceRequest = requestInformation.prepareSourceRequest(resource);
         final String requestIdentifier = createRequestIdentifier(icapMode.name(), sourceRequest);
         LOG.info(requestIdentifier + "Validate resource (" + sourceRequest + ")");
 
@@ -217,8 +222,8 @@ public class ICAPClientImpl implements ICAPClient {
                     String msg = "Threat found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
                     LOG.info(requestIdentifier + msg);
                     throw new ContentBlockedException(msg, icapHeaderInformation, errorContent);                    
-                } else if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)
-                        && !icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).isEmpty()
+                } else if (supportCompareVerifyIdenticalContent 
+                        && icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT) && !icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).isEmpty()
                         && !Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0))) {
                     String msg = "Not identical resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
                     LOG.info(requestIdentifier + msg);
@@ -369,10 +374,11 @@ public class ICAPClientImpl implements ICAPClient {
                 return icapHeaderInformation;
             }
 
+            boolean couldProcessFullContent;
             MessageDigest outputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
             try (DigestOutputStream outputstream = new DigestOutputStream(new BufferedOutputStream(new FileOutputStream(resourceResponse)), outputMessageDigest)) {
                 //int parsedResult = (int) Long.parseLong(hex, 16);
-                icapSocket.processContent(outputstream);
+                couldProcessFullContent = (icapSocket.processContent(outputstream) >= 0);
                 outputstream.flush();
                 outputstream.close();
             }
@@ -388,11 +394,13 @@ public class ICAPClientImpl implements ICAPClient {
                 LOG.debug(requestIdentifier + "Resource length: " + resource.getResourceLength() + ", Response length: " + resourceResponse.length() + "?");
             }
             
-            boolean identicalContent = resource.getResourceLength() == resourceResponse.length() && inputMsg.equals(outputMsg);
-            if (identicalContent) {
-                icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT, Arrays.asList("" + identicalContent));
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug(requestIdentifier + "Input and output are equal -> allow, it's a valid response!");
+            if (supportCompareVerifyIdenticalContent) {
+                boolean identicalContent = couldProcessFullContent && resource.getResourceLength() == resourceResponse.length() && inputMsg.equals(outputMsg);
+                if (identicalContent) {
+                    icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT, Arrays.asList("" + identicalContent));
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(requestIdentifier + "Input and output are equal -> allow, it's a valid response!");
+                    }
                 }
             }
 

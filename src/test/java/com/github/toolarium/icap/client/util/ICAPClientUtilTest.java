@@ -45,7 +45,7 @@ public class ICAPClientUtilTest {
      */
     protected String assertCopy(String input) throws IOException {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        long copiedBytes = ICAPClientUtil.getInstance().copy(new ByteArrayInputStream(input.getBytes("UTF-8")), stream);
+        long copiedBytes = new ByteArrayInputStream(input.getBytes("UTF-8")).transferTo(stream);
         String result = new String(stream.toByteArray(), "UTF-8");
         
         assertEquals(result.length(), copiedBytes);

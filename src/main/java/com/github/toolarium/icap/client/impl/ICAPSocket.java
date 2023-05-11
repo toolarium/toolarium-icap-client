@@ -140,11 +140,30 @@ public class ICAPSocket implements AutoCloseable {
      * @throws IOException In case of an I/O error
      */
     public long processContent(OutputStream outputStream) throws IOException {
-        long size = ICAPClientUtil.getInstance().copy(is, outputStream);
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Process content [" + connection + "] copied bytes " + size);
+        if (is == null || outputStream == null) {
+            return 0;
         }
-        return size;
+        
+        long totalSize = 0;
+        
+        try {
+            byte[] buf = new byte[ICAPClientUtil.INTERNAL_BUFFER_SIZE];
+            int length;
+            while ((length = is.read(buf)) > 0) {
+                if (length > 0) {
+                    outputStream.write(buf, 0, length);
+                }
+                totalSize += length;
+            }
+        } catch (RuntimeException ex) {
+            LOG.debug("Could not transfer all bytes from input to output stream: " + ex.getMessage());
+            totalSize = -1;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(requestIdentifier + "Process content [" + connection + "] copied bytes " + totalSize);
+        }
+        return totalSize;
     }
 
 

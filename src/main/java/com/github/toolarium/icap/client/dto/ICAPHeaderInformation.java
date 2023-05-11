@@ -51,9 +51,11 @@ public class ICAPHeaderInformation implements Serializable {
      * Set the protocol
      *
      * @param protocol the protocol
+     * @return the ICAPHeaderInformation
      */
-    public void setProtocol(String protocol) {
+    public ICAPHeaderInformation setProtocol(String protocol) {
         this.protocol = protocol;
+        return this;
     }
 
 
@@ -72,9 +74,11 @@ public class ICAPHeaderInformation implements Serializable {
      * Set the version
      *
      * @param version the version
+     * @return the ICAPHeaderInformation
      */
-    public void setVersion(String version) {
+    public ICAPHeaderInformation setVersion(String version) {
         this.version = version;
+        return this;
     }
 
 
@@ -92,9 +96,11 @@ public class ICAPHeaderInformation implements Serializable {
      * Set the status
      *
      * @param status the status
+     * @return the ICAPHeaderInformation
      */
-    public void setStatus(int status) {
+    public ICAPHeaderInformation setStatus(int status) {
         this.status = status;
+        return this;
     }
 
 
@@ -112,9 +118,11 @@ public class ICAPHeaderInformation implements Serializable {
      * Set the message
      *
      * @param message the message
+     * @return the ICAPHeaderInformation
      */
-    public void setMessage(String message) {
+    public ICAPHeaderInformation setMessage(String message) {
         this.message = message;
+        return this;
     }
 
 
@@ -122,9 +130,11 @@ public class ICAPHeaderInformation implements Serializable {
      * Set the header entries
      *
      * @param headers the headers
+     * @return the ICAPHeaderInformation
      */
-    public void setHeaders(Map<String, List<String>> headers) {
+    public ICAPHeaderInformation setHeaders(Map<String, List<String>> headers) {
         this.headers = headers;
+        return this;
     }
 
 

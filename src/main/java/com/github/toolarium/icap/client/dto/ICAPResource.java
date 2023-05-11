@@ -61,9 +61,11 @@ public class ICAPResource implements Serializable {
      * Set the name of the resource.
      *
      * @param resourceName the name of the resource to set
+     * @return the ICAPResource
      */
-    public void setResourceName(String resourceName) {
+    public ICAPResource setResourceName(String resourceName) {
         this.resourceName = resourceName;
+        return this;
     }
 
 
@@ -81,9 +83,11 @@ public class ICAPResource implements Serializable {
      * Set the resource input stream.
      *
      * @param resourceInputStream the resource input stream to set
+     * @return the ICAPResource
      */
-    public void setResourceBody(InputStream resourceInputStream) {
+    public ICAPResource setResourceBody(InputStream resourceInputStream) {
         this.resourceInputStream = resourceInputStream;
+        return this;
     }
 
 
@@ -101,9 +105,11 @@ public class ICAPResource implements Serializable {
      * Set the resource length.
      *
      * @param resourceLength the resource length to set
+     * @return the ICAPResource
      */
-    public void setResourceLength(long resourceLength) {
+    public ICAPResource setResourceLength(long resourceLength) {
         this.resourceLength = resourceLength;
+        return this;
     }
 
 

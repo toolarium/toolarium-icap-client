@@ -80,9 +80,11 @@ public class ICAPRequestInformation implements Serializable {
      * Set the user agent
      *
      * @param userAgent the user agent
+     * @return the ICAPRequestInformation
      */
-    public void setUserAgent(String userAgent) {
+    public ICAPRequestInformation setUserAgent(String userAgent) {
         this.userAgent = userAgent;
+        return this;
     }
 
 
@@ -100,9 +102,11 @@ public class ICAPRequestInformation implements Serializable {
      * Sets the api version
      *
      * @param apiVersion the api version
+     * @return the ICAPRequestInformation
      */
-    public void setApiVersion(String apiVersion) {
+    public ICAPRequestInformation setApiVersion(String apiVersion) {
         this.apiVersion = apiVersion;
+        return this;
     }
 
 
@@ -120,9 +124,11 @@ public class ICAPRequestInformation implements Serializable {
      * Sets the use rname.
      *
      * @param username the user name to set
+     * @return the ICAPRequestInformation
      */
-    public void setUsername(String username) {
+    public ICAPRequestInformation setUsername(String username) {
         this.username = username;
+        return this;
     }
 
 
@@ -140,13 +146,14 @@ public class ICAPRequestInformation implements Serializable {
      * Set the request source, e.g. service or ip-address.
      *
      * @param requestSource the request source to set
+     * @return the ICAPRequestInformation
      */
-    public void setRequestSource(String requestSource) {
+    public ICAPRequestInformation setRequestSource(String requestSource) {
         this.requestSource = requestSource;
+        return this;
     }
 
     
-
     /**
      * Check if allow 204 status is enabled
      *
@@ -161,9 +168,11 @@ public class ICAPRequestInformation implements Serializable {
      * Set allow 204 status
      *
      * @param allow204 allow 204 status; if it is set to null it will automatically selected if the server allows it.
+     * @return the ICAPRequestInformation
      */
-    public void setAllow204(Boolean allow204) {
+    public ICAPRequestInformation setAllow204(Boolean allow204) {
         this.allow204 = allow204;
+        return this;
     }
 
 
@@ -209,11 +218,10 @@ public class ICAPRequestInformation implements Serializable {
     /**
      * Prepare the source request
      *
-     * @param resourceName the resource name
-     * @param resourceLength the resource length
+     * @param resource the resource
      * @return the prepared source request
      */
-    public String prepareSourceRequest(final String resourceName, final Long resourceLength) {
+    public String prepareSourceRequest(final ICAPResource resource) {
         String sourceRequest = "";
         if (getUsername() != null) {
             if (!sourceRequest.isEmpty()) {
@@ -228,6 +236,13 @@ public class ICAPRequestInformation implements Serializable {
                 sourceRequest += SEPARATOR;
             }
             sourceRequest += "source: " + getRequestSource();
+        }
+
+        String resourceName = null;
+        Long resourceLength = null;
+        if (resource != null) {
+            resourceName = resource.getResourceName().trim();
+            resourceLength = resource.getResourceLength();
         }
 
         if (resourceName != null) {

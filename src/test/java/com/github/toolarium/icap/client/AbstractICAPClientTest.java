@@ -52,7 +52,7 @@ public abstract class AbstractICAPClientTest {
      * @return the client
      */
     protected ICAPClient getICAPClient() {
-        return ICAPClientFactory.getInstance().getICAPClient("localhost", 1344, SERVICE);
+        return ICAPClientFactory.getInstance().getICAPClient("localhost", 1344, SERVICE).supportCompareVerifyIdenticalContent(true);
     }   
 
     
@@ -110,7 +110,7 @@ public abstract class AbstractICAPClientTest {
         } catch (ContentBlockedException e) {            
             printResponse(e.getICAPHeaderInformation());
             if (e.getContent() != null) {
-                LOG.info("---> Response content: \n" + e.getContent());
+                LOG.debug("---> Response content: \n" + e.getContent());
             }
             
             throw e;
