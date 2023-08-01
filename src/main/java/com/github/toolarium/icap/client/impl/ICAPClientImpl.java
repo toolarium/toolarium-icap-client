@@ -112,8 +112,8 @@ public class ICAPClientImpl implements ICAPClient {
             }
             
             int serverPreviewSize = 1024;
-            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW) 
-                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null 
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null
                     && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).size() > 0) {
                 try {
                     serverPreviewSize = Integer.parseInt(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).get(0));
@@ -202,8 +202,12 @@ public class ICAPClientImpl implements ICAPClient {
                         threadInformation += "- " + e.getKey() + ": " + e.getValue() + "\n";
                     }
                 }
-                
-                if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND) || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND)) {
+
+                if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND)
+                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND)
+                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_REASON)
+                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_NAME)
+                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_RESULT)) {
                     String errorContent = "";
                     if (resourceResponse != null 
                             && icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ENCAPSULATED) 

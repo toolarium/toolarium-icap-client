@@ -32,5 +32,10 @@ public interface ICAPConstants {
     String HEADER_KEY_X_REQUEST_MESSAGE_DIGEST = "X-Request-Message-Digest";    
     String HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST = "X-Response-Message-Digest";
     String HEADER_KEY_X_IDENTICAL_CONTENT = "X-Resource-Identical-Content";
-    
+
+    // McAffee Web Gateway ICAP headers
+    String HEADER_KEY_X_BLOCK_REASON = "X-Block-Reason";
+    String HEADER_KEY_X_VIRUS_NAME = "X-Virus-Name";
+    String HEADER_KEY_X_BLOCK_RESULT = "X-WWBlockResult";
+
 }
