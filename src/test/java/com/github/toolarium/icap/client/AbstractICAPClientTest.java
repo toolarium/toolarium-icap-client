@@ -132,8 +132,6 @@ public abstract class AbstractICAPClientTest {
     }
 
 
-
-
     /**
      * Assert umodified file
      *

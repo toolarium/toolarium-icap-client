@@ -112,8 +112,8 @@ public class ICAPClientImpl implements ICAPClient {
             }
             
             int serverPreviewSize = 1024;
-            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW)
-                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW) 
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null 
                     && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).size() > 0) {
                 try {
                     serverPreviewSize = Integer.parseInt(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).get(0));
@@ -167,7 +167,7 @@ public class ICAPClientImpl implements ICAPClient {
     @Override
     public ICAPHeaderInformation validateResource(final ICAPMode inputMode, final ICAPRequestInformation requestInformation, final ICAPResource resource) throws IOException, ContentBlockedException {
         validateRequestInformation(requestInformation);
-        validateResource(resource);
+        validateICAPResource(resource);
 
         ICAPMode icapMode = ICAPMode.REQMOD;
         if (inputMode != null) {
@@ -202,33 +202,16 @@ public class ICAPClientImpl implements ICAPClient {
                         threadInformation += "- " + e.getKey() + ": " + e.getValue() + "\n";
                     }
                 }
-
-                if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND)
-                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND)
-                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_REASON)
-                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_NAME)
-                    || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_RESULT)) {
-                    String errorContent = "";
-                    if (resourceResponse != null 
-                            && icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ENCAPSULATED) 
-                            && !icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).isEmpty()
-                            && resourceResponse.length() > 0 && resourceResponse.exists()) {                    
-                        for (int i = 0; i < icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size(); i++) {
-                            String entry = icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(i);
-                            String[] split = entry.split("=");
-                            if (split.length > 1 && split[0].trim().equalsIgnoreCase(icapMode.getTag() + "-body")) {
-                                errorContent = new String(ICAPClientUtil.getInstance().readFile(resourceResponse), Charset.forName("UTF-8")).trim();
-                                break;
-                            }
-                        }
-                    }
-
+                
+                // verify if there is a thread is found taken from header
+                if (hasThreadHeaderInformation(icapHeaderInformation)) {
+                    String threadHeaderInformation = readThreadHeaderInformation(icapMode, icapHeaderInformation, resourceResponse);
                     String msg = "Threat found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
                     LOG.info(requestIdentifier + msg);
-                    throw new ContentBlockedException(msg, icapHeaderInformation, errorContent);                    
+                    throw new ContentBlockedException(msg, icapHeaderInformation, threadHeaderInformation);                    
                 } else if (supportCompareVerifyIdenticalContent 
-                        && icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT) && !icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).isEmpty()
-                        && !Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0))) {
+                        && icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT) && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).isEmpty()
+                        && !Boolean.valueOf(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0))) {
                     String msg = "Not identical resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
                     LOG.info(requestIdentifier + msg);
                     throw new ContentBlockedException(msg, icapHeaderInformation);                    
@@ -249,12 +232,80 @@ public class ICAPClientImpl implements ICAPClient {
 
     
     /**
+     * Check if there are thread header information
+     * 
+     * @param icapHeaderInformation the ICAP header information
+     * @return true if a thread was detected
+     */
+    private boolean hasThreadHeaderInformation(ICAPHeaderInformation icapHeaderInformation) {
+        return icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND) 
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND)
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCKED)        // used by Sophos                 
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_ID)       // used by Sophos, Kaspersky, Trenxd Micro, ESET, McAfee, C-ICAP                 
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_NAME)     // used by McAfee                 
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_REASON)   // used by McAfee                 
+               || icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCK_RESULT);  // used by McAfee                 
+    }
+
+    
+    /**
+     * Read the thread reason
+     * 
+     * @param icapMode the icap mode
+     * @param resourceResponse the resource response
+     * @param icapHeaderInformation the ICAP header information
+     * @return the thread content information
+     */
+    private String readThreadHeaderInformation(ICAPMode icapMode, ICAPHeaderInformation icapHeaderInformation, File resourceResponse) {
+        String threadHeaderInformation = null;
+
+        if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_ENCAPSULATED) && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED).isEmpty()
+            && resourceResponse != null && resourceResponse.length() > 0 && resourceResponse.exists()) {                    
+            for (int i = 0; i < icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED).size(); i++) {
+                String entry = icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(i);
+                String[] split = entry.split("=");
+                if (split.length > 1 && split[0].trim().equalsIgnoreCase(icapMode.getTag() + "-body")) {
+                    try {
+                        threadHeaderInformation = new String(ICAPClientUtil.getInstance().readFile(resourceResponse), Charset.forName("UTF-8")).trim();
+                    } catch (IOException e) {
+                        LOG.warn("Could not read resource response: " + e.getMessage(), e);
+                    }
+                    
+                    break;
+                }
+            }
+        }
+        
+        if ((threadHeaderInformation == null || threadHeaderInformation.isBlank()) && icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_BLOCKED)) {
+            // used by Sophos
+            threadHeaderInformation = "" + icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_BLOCKED);
+        }
+        
+        if ((threadHeaderInformation == null || threadHeaderInformation.isBlank()) && icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_ID)) {
+            // used by Sophos, Kaspersky, Trenxd Micro, ESET, McAfee, C-ICAP
+            threadHeaderInformation = "" + icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIRUS_ID);
+        }
+        
+        if ((threadHeaderInformation == null || threadHeaderInformation.isBlank()) && icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_VIRUS_NAME)) {
+            // used by McAfee
+            threadHeaderInformation = "" + icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIRUS_NAME);
+        }
+   
+        if (threadHeaderInformation == null || threadHeaderInformation.isBlank()) {
+            threadHeaderInformation = "n/a";
+        }
+        
+        return threadHeaderInformation;
+    }
+
+    
+    /**
      * Validate resource
      * 
      * @param resource the resource
      * @throws IOException In case of an invalid resource
      */
-    protected void validateResource(final ICAPResource resource) throws IOException {
+    protected void validateICAPResource(final ICAPResource resource) throws IOException {
         if (resource == null 
                 || resource.getResourceName() == null || resource.getResourceName().isBlank() 
                 || resource.getResourceBody() == null 
