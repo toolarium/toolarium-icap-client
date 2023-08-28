@@ -535,4 +535,50 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             fail();
         }
     }
+
+
+    /**
+     * The usage empty file case 
+     */
+    @Test
+    public void usage_TestEmptyFile() {
+        // the ICAP-Server information
+        final String hostName = LOCALHOST;
+        final int port = 1344;
+        final String serviceName = "srv_clamav";
+                
+        try {
+            ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(new byte[] {});
+            ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName)
+                 .validateResource(ICAPMode.RESPMOD, 
+                                   new ICAPRequestInformation("userb", "emptyfile"), 
+                                   new ICAPResource("build/test-file.com", resourceInputStream, 0));
+        } catch (Exception ioe) { // I/O error
+            LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
+            fail();
+        }
+    }
+
+
+    /**
+     * The usage empty file case 
+     */
+    @Test
+    public void usage_TestSmallFile() {
+        // the ICAP-Server information
+        final String hostName = LOCALHOST;
+        final int port = 1344;
+        final String serviceName = "srv_clamav";
+                
+        try {
+            ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(new byte[] {(byte)'a'});
+            ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName)
+                 .validateResource(ICAPMode.RESPMOD, 
+                                   new ICAPRequestInformation("userb", "emptyfile"), 
+                                   new ICAPResource("build/test-file.com", resourceInputStream, 1));
+        } catch (Exception ioe) { // I/O error
+            LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
+            fail();
+        }
+    }
 }

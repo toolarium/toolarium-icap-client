@@ -167,6 +167,9 @@ public class ICAPClientImpl implements ICAPClient {
     @Override
     public ICAPHeaderInformation validateResource(final ICAPMode inputMode, final ICAPRequestInformation requestInformation, final ICAPResource resource) throws IOException, ContentBlockedException {
         validateRequestInformation(requestInformation);
+        if (resource.getResourceLength() == 0) {
+            return new ICAPHeaderInformation();
+        }
         validateICAPResource(resource);
 
         ICAPMode icapMode = ICAPMode.REQMOD;
