@@ -552,7 +552,7 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName)
                  .validateResource(ICAPMode.RESPMOD, 
                                    new ICAPRequestInformation("userb", "emptyfile"), 
-                                   new ICAPResource("build/test-file.com", resourceInputStream, 0));
+                                   new ICAPResource("build/test-emptyfile.com", resourceInputStream, 0));
         } catch (Exception ioe) { // I/O error
             LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
             fail();
@@ -574,8 +574,8 @@ public class ICAPClientUsageTest extends AbstractICAPClientTest {
             ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(new byte[] {(byte)'a'});
             ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName)
                  .validateResource(ICAPMode.RESPMOD, 
-                                   new ICAPRequestInformation("userb", "emptyfile"), 
-                                   new ICAPResource("build/test-file.com", resourceInputStream, 1));
+                                   new ICAPRequestInformation("userb", "smallfile"), 
+                                   new ICAPResource("build/test-smallfile.com", resourceInputStream, 1));
         } catch (Exception ioe) { // I/O error
             LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
             fail();
