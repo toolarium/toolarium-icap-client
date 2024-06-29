@@ -1,8 +1,7 @@
 /*
  * build.gradle
  *
- * Copyright by toolarium-icap-client, all rights reserved.
- * MIT License: https://mit-license.org
+ * Copyright by toolarium, all rights reserved.
  */
 apply from: "https://raw.githubusercontent.com/toolarium/common-gradle-build/master/gradle/common.gradle"
 

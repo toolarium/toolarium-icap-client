@@ -5,8 +5,12 @@
  */
 package com.github.toolarium.icap.client.dto;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.nio.file.Path;
 import java.util.Objects;
 
 
@@ -20,6 +24,30 @@ public class ICAPResource implements Serializable {
     private String resourceName;
     private InputStream resourceInputStream;
     private long resourceLength;
+
+    
+    /**
+     * Constructor for ICAPResource
+     *
+     * @param resource the resource
+     * @throws IllegalArgumentException In case of invalid resource 
+     * @throws FileNotFoundException In case the resource don't exist 
+     */
+    public ICAPResource(Path resource) throws FileNotFoundException {
+        
+        if (resource == null) {
+            throw new IllegalArgumentException("Invalid resource!");
+        }
+        
+        File file = resource.toFile();
+        if (!file.exists()) {
+            throw new FileNotFoundException("Could not find resource [" + file + "]!");
+        }
+        
+        setResourceName(file.getName());
+        setResourceBody(new FileInputStream(file));
+        setResourceLength(file.length());
+    }
 
 
     /**
