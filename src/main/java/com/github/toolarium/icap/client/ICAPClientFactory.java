@@ -163,7 +163,7 @@ public final class ICAPClientFactory {
             servicePort = Integer.parseInt(url.substring(idx + 1).trim());
         }
         
-        boolean secureConnection = url.toLowerCase().startsWith("icaps:");
+        boolean secureConnection = icapUrl.toLowerCase().trim().startsWith("icaps:");
         return getICAPClient(hostName, servicePort, serviceName, secureConnection, cacheMaxAgeInSeconds);
     }
     
