@@ -30,4 +30,11 @@ public interface ICAPConnectionManager {
      */
     Socket createSocket(String hostname, int port, boolean secureConnection) throws UnknownHostException, IOException;
 
+    
+    /**
+     * Define the socket timeout
+     *
+     * @param timeout the socket timeout
+     */
+    void setSocketTimeout(int timeout);
 }

@@ -8,6 +8,7 @@ package com.github.toolarium.icap.client.impl;
 import com.github.toolarium.icap.client.ICAPConnectionManager;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -18,6 +19,7 @@ import javax.net.ssl.SSLSocketFactory;
  * @author patrick
  */
 public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
+    private int socketTimeout;
 
     /**
      * @see com.github.toolarium.icap.client.ICAPConnectionManager#createSocket(java.lang.String, int, boolean)
@@ -32,6 +34,15 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
         return createSecureSocket(hostname, port);
     }
 
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setSocketTimeout(int)
+     */
+    @Override
+    public void setSocketTimeout(int socketTimeout) {
+        this.socketTimeout = socketTimeout;
+    }
+
     
     /**
      * Create a simple socket
@@ -43,7 +54,7 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws IOException In case of an I/O error
      */
     protected Socket createUnsecureSocket(String hostname, int port) throws UnknownHostException, IOException {
-        return new Socket(hostname, port);
+        return applySocketSettings(new Socket(hostname, port)); 
     }
 
 
@@ -58,7 +69,20 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     protected Socket createSecureSocket(String hostname, int port) throws UnknownHostException, IOException {
         SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-        SSLSocket sslSocket = (SSLSocket)factory.createSocket(hostname, port);
+        Socket sslSocket = applySocketSettings((SSLSocket)factory.createSocket(hostname, port));
         return sslSocket;
+    }
+    
+    
+    /**
+     * Apply the socket settings
+     *
+     * @param socket the socket
+     * @return the socket
+     * @throws SocketException Inb case of a socket issue
+     */
+    protected Socket applySocketSettings(Socket socket) throws SocketException {
+        socket.setSoTimeout(socketTimeout);
+        return socket;
     }
 }
