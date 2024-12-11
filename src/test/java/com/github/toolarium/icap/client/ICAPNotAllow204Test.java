@@ -123,7 +123,7 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
-        assertEquals(457, ex.getContent().length());
+        assertEquals(447, ex.getContent().length());
         
         ex = assertThrows(ContentBlockedException.class, () -> {
             validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
@@ -183,7 +183,7 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
-        assertEquals(457, ex.getContent().length());
+        assertEquals(447, ex.getContent().length());
 
     
         ex = assertThrows(ContentBlockedException.class, () -> {

@@ -340,10 +340,10 @@ public class ICAPClientImpl implements ICAPClient {
 
         // first part of header
         String httpMethod = "GET";
-        String header = httpMethod + " /" + URLEncoder.encode(resource.getResourceName().trim(), StandardCharsets.UTF_8.name()) + " HTTP/1.1" + NEWLINE 
-                      + "Host: " + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + NEWLINE + NEWLINE;
+        String header = httpMethod + " /" + URLEncoder.encode(resource.getResourceName().trim(), StandardCharsets.UTF_8.name()) + " HTTP/1.1" + NEWLINE
+                        + "Host: " + requestInformation.getRequestSource() + NEWLINE + NEWLINE;
         String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE 
-                    + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
+                      + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
         String reqHdr = "";
         String bodyHdr = "";
         if (ICAPMode.RESPMOD.equals(icapMode)) {
