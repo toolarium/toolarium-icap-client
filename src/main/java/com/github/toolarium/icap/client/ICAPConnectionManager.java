@@ -32,9 +32,9 @@ public interface ICAPConnectionManager {
 
     
     /**
-     * Define the socket timeout
+     * Define the socket timeout in milliseconds.
      *
-     * @param timeout the socket timeout
+     * @param timeout the socket timeout in milliseconds
      */
     void setSocketTimeout(int timeout);
 }

@@ -7,8 +7,8 @@ package com.github.toolarium.icap.client.impl;
 
 import com.github.toolarium.icap.client.ICAPConnectionManager;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -54,7 +54,9 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws IOException In case of an I/O error
      */
     protected Socket createUnsecureSocket(String hostname, int port) throws UnknownHostException, IOException {
-        return applySocketSettings(new Socket(hostname, port)); 
+        Socket socket = new Socket();
+        socket.connect(new InetSocketAddress(hostname,port), socketTimeout);
+        return socket;
     }
 
 
@@ -69,20 +71,8 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     protected Socket createSecureSocket(String hostname, int port) throws UnknownHostException, IOException {
         SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-        Socket sslSocket = applySocketSettings((SSLSocket)factory.createSocket(hostname, port));
+        Socket sslSocket = (SSLSocket)factory.createSocket();
+        sslSocket.connect(new InetSocketAddress(hostname,port), socketTimeout);
         return sslSocket;
-    }
-    
-    
-    /**
-     * Apply the socket settings
-     *
-     * @param socket the socket
-     * @return the socket
-     * @throws SocketException Inb case of a socket issue
-     */
-    protected Socket applySocketSettings(Socket socket) throws SocketException {
-        socket.setSoTimeout(socketTimeout);
-        return socket;
     }
 }
