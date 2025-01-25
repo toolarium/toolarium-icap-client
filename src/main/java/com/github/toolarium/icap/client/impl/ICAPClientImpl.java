@@ -103,6 +103,7 @@ public class ICAPClientImpl implements ICAPClient {
             icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
                              + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE
+                             + createCustomHeaders(requestInformation)
                              + ICAPConstants.HEADER_KEY_ENCAPSULATED + ": null-body=0" + NEWLINE + NEWLINE);
             icapSocket.flush();
 
@@ -235,6 +236,33 @@ public class ICAPClientImpl implements ICAPClient {
 
     
     /**
+     * Create custom headers
+     * 
+     * @param requestInformation the ICAP request information
+     * @return the customer headers
+     */
+    private String createCustomHeaders(final ICAPRequestInformation requestInformation) {
+        if (requestInformation.getCusomHeaders() == null || requestInformation.getCusomHeaders().isEmpty()) {
+            return "";
+        }
+        
+        final StringBuilder headers = new StringBuilder();
+        for (Map.Entry<String, String> e : requestInformation.getCusomHeaders().entrySet()) {
+            final String key = e.getKey().trim();
+            final String value = e.getValue().trim();
+            
+            if (key.equalsIgnoreCase("Host") || key.equalsIgnoreCase("Connection") || key.equalsIgnoreCase("User-Agent") || key.equalsIgnoreCase("Preview") || key.equalsIgnoreCase("Encapsulated") || key.equalsIgnoreCase("Allow")) {
+                LOG.warn("Invalid customer header [" + key + "], it's not allowed, ignore!");
+            } else if (!value.isEmpty()) {
+                headers.append(key).append(": ").append(value).append(NEWLINE);
+            }
+        }
+        
+        return headers.toString();
+    }
+
+    
+    /**
      * Check if there are thread header information
      * 
      * @param icapHeaderInformation the ICAP header information
@@ -362,6 +390,7 @@ public class ICAPClientImpl implements ICAPClient {
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
                              + "Connection:  close" + NEWLINE 
                              + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE 
+                             + createCustomHeaders(requestInformation)
                              + supportAllow204(requestIdentifier, requestInformation.isAllow204())
                              + "Preview: " + previewSize + NEWLINE 
                              + "Encapsulated: " + reqHdr + bodyHdr + icapMode.getTag() + "-body=" + body.length() + NEWLINE + NEWLINE 

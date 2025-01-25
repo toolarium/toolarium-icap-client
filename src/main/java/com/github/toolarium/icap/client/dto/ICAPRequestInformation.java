@@ -6,7 +6,9 @@
 package com.github.toolarium.icap.client.dto;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Defines the request header information
@@ -27,6 +29,7 @@ public class ICAPRequestInformation implements Serializable {
     private String username;
     private String requestSource;
     private Boolean allow204;
+    private Map<String, String> cutomHeaders;
 
 
     /**
@@ -63,6 +66,7 @@ public class ICAPRequestInformation implements Serializable {
         this.username = username;
         this.requestSource = requestSource;
         this.allow204 = allow204;
+        this.cutomHeaders = null;
     }
 
 
@@ -174,11 +178,53 @@ public class ICAPRequestInformation implements Serializable {
         this.allow204 = allow204;
         return this;
     }
+    
+    
+    /**
+     * Get the custom headers
+     *
+     * @return the custom headers
+     */
+    public Map<String, String> getCusomHeaders() {
+        return cutomHeaders;
+    }
 
+    
+    /**
+     * Set the custom headers
+     *
+     * @param cutomHeaders the custom headers
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation setCusomHeaders(Map<String, String> cutomHeaders) {
+        this.cutomHeaders = cutomHeaders;
+        return this;
+    }
 
+    
+    /**
+     * Add custom header
+     *
+     * @param key the key
+     * @param value the value
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation addCustomHeader(String key, String value) {
+        if (cutomHeaders == null) {
+            cutomHeaders = new ConcurrentHashMap<String, String>();
+        }
+        
+        cutomHeaders.put(key, value);
+        return this;
+    }
+
+    
+    /**
+     * @see java.lang.Object#hashCode()
+     */
     @Override
     public int hashCode() {
-        return Objects.hash(allow204, apiVersion, requestSource, userAgent, username);
+        return Objects.hash(allow204, apiVersion, cutomHeaders, requestSource, userAgent, username);
     }
 
 
@@ -201,20 +247,22 @@ public class ICAPRequestInformation implements Serializable {
         
         ICAPRequestInformation other = (ICAPRequestInformation) obj;
         return Objects.equals(allow204, other.allow204) && Objects.equals(apiVersion, other.apiVersion)
+                && Objects.equals(cutomHeaders, other.cutomHeaders)
                 && Objects.equals(requestSource, other.requestSource) && Objects.equals(userAgent, other.userAgent)
                 && Objects.equals(username, other.username);
     }
-
-
+    
+    
     /**
      * @see java.lang.Object#toString()
      */
     @Override
     public String toString() {
-        return "ICAPRequestHeader [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username=" + username + ", requestSource=" + requestSource + "]";
+        return "ICAPRequestInformation [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username=" + username + ", requestSource=" + requestSource 
+                + ", allow204=" + allow204 + ", cutomHeaders=" + cutomHeaders + "]";
     }
-    
-    
+
+
     /**
      * Prepare the source request
      *
