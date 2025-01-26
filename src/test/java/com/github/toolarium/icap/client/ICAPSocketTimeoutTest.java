@@ -27,6 +27,7 @@ public class ICAPSocketTimeoutTest {
     private static final String SERVICENAME = "srv_clamav"; 
     private static final Logger LOG = LoggerFactory.getLogger(ICAPSocketTimeoutTest.class);
 
+    
     /**
      * Socket timeout
      */
