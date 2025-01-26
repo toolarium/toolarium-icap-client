@@ -46,9 +46,10 @@ public class ICAPSocket implements AutoCloseable {
      * @param port the port
      * @param service the service
      * @param secureConnection true to establish a secured connection
+     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
      * @throws IOException In case of an I/O error
      */
-    public ICAPSocket(ICAPConnectionManager connectionManager, String requestIdentifier, String host, int port, String service, boolean secureConnection) throws IOException {
+    public ICAPSocket(ICAPConnectionManager connectionManager, String requestIdentifier, String host, int port, String service, boolean secureConnection, Integer maxRequestTimeout) throws IOException {
         this.requestIdentifier = requestIdentifier;
         this.connection = "" + host + ":" + port + "/" + service;
         if (LOG.isDebugEnabled()) {
@@ -56,7 +57,7 @@ public class ICAPSocket implements AutoCloseable {
         }
 
         try {
-            socket = connectionManager.createSocket(host, port, secureConnection);
+            socket = connectionManager.createSocket(host, port, secureConnection, maxRequestTimeout);
             is = new ChunkedInputStream(requestIdentifier, socket.getInputStream());
             os = socket.getOutputStream();
         } catch (IOException e) {

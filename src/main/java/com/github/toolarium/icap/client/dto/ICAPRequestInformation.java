@@ -29,7 +29,8 @@ public class ICAPRequestInformation implements Serializable {
     private String username;
     private String requestSource;
     private Boolean allow204;
-    private Map<String, String> cutomHeaders;
+    private Integer maxRequestTimeout;
+    private Map<String, String> customHeaders;
 
 
     /**
@@ -66,7 +67,8 @@ public class ICAPRequestInformation implements Serializable {
         this.username = username;
         this.requestSource = requestSource;
         this.allow204 = allow204;
-        this.cutomHeaders = null;
+        this.maxRequestTimeout = null;
+        this.customHeaders = null;
     }
 
 
@@ -178,26 +180,54 @@ public class ICAPRequestInformation implements Serializable {
         this.allow204 = allow204;
         return this;
     }
+
     
+    /**
+     * Get the max request timeout in milliseconds. By default there is no timeout set (null). 
+     * Any positive value will be set to the socket connection of the ICAP connection.
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
+     * until established or an error occurs. 
+     *
+     * @return the max request timeout
+     */
+    public Integer getMaxRequestTimeout() {
+        return maxRequestTimeout;
+    }
+
+    
+    /**
+     * Set max request timeout in milliseconds. By default there is no timeout set (null). 
+     * Any positive value will be set to the socket connection of the ICAP connection.
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
+     * until established or an error occurs. 
+     *
+     * @param maxRequestTimeout the max request timeout
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation maxRequestTimeout(Integer maxRequestTimeout) {
+        this.maxRequestTimeout = maxRequestTimeout;
+        return this;
+    }
+
     
     /**
      * Get the custom headers
      *
      * @return the custom headers
      */
-    public Map<String, String> getCusomHeaders() {
-        return cutomHeaders;
+    public Map<String, String> getCustomHeaders() {
+        return customHeaders;
     }
 
     
     /**
      * Set the custom headers
      *
-     * @param cutomHeaders the custom headers
+     * @param customHeaders the custom headers
      * @return the ICAPRequestInformation
      */
-    public ICAPRequestInformation setCusomHeaders(Map<String, String> cutomHeaders) {
-        this.cutomHeaders = cutomHeaders;
+    public ICAPRequestInformation setCustomHeaders(Map<String, String> customHeaders) {
+        this.customHeaders = customHeaders;
         return this;
     }
 
@@ -210,11 +240,11 @@ public class ICAPRequestInformation implements Serializable {
      * @return the ICAPRequestInformation
      */
     public ICAPRequestInformation addCustomHeader(String key, String value) {
-        if (cutomHeaders == null) {
-            cutomHeaders = new ConcurrentHashMap<String, String>();
+        if (customHeaders == null) {
+            customHeaders = new ConcurrentHashMap<String, String>();
         }
         
-        cutomHeaders.put(key, value);
+        customHeaders.put(key, value);
         return this;
     }
 
@@ -224,7 +254,7 @@ public class ICAPRequestInformation implements Serializable {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(allow204, apiVersion, cutomHeaders, requestSource, userAgent, username);
+        return Objects.hash(allow204, apiVersion, customHeaders, requestSource, userAgent, username);
     }
 
 
@@ -247,7 +277,7 @@ public class ICAPRequestInformation implements Serializable {
         
         ICAPRequestInformation other = (ICAPRequestInformation) obj;
         return Objects.equals(allow204, other.allow204) && Objects.equals(apiVersion, other.apiVersion)
-                && Objects.equals(cutomHeaders, other.cutomHeaders)
+                && Objects.equals(customHeaders, other.customHeaders)
                 && Objects.equals(requestSource, other.requestSource) && Objects.equals(userAgent, other.userAgent)
                 && Objects.equals(username, other.username);
     }
@@ -259,7 +289,7 @@ public class ICAPRequestInformation implements Serializable {
     @Override
     public String toString() {
         return "ICAPRequestInformation [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username=" + username + ", requestSource=" + requestSource 
-                + ", allow204=" + allow204 + ", cutomHeaders=" + cutomHeaders + "]";
+                + ", allow204=" + allow204 + ", cutomHeaders=" + customHeaders + "]";
     }
 
 

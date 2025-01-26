@@ -24,17 +24,18 @@ public interface ICAPConnectionManager {
      * @param hostname the name of the host to connect
      * @param port the port
      * @param secureConnection true to use secured SSL connection
+     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
      * @return the socket / SSL socket
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
-    Socket createSocket(String hostname, int port, boolean secureConnection) throws UnknownHostException, IOException;
+    Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxRequestTimeout) throws UnknownHostException, IOException;
 
     
     /**
-     * Define the socket timeout in milliseconds.
+     * Define the default socket timeout in milliseconds or null. A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      *
-     * @param timeout the socket timeout in milliseconds
+     * @param defaultSocketTimeout the default socket timeout in milliseconds or null.
      */
-    void setSocketTimeout(int timeout);
+    void setDefaultSocketTimeout(Integer defaultSocketTimeout);
 }

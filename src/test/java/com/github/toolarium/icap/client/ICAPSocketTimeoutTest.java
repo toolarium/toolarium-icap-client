@@ -33,14 +33,14 @@ public class ICAPSocketTimeoutTest {
     @Test
     public void testSocketTimeout() {
         LOG.debug("START");
-        ICAPClientFactory.getInstance().getICAPConnectionManager().setSocketTimeout(10);
+        ICAPClientFactory.getInstance().getICAPConnectionManager().setDefaultSocketTimeout(10);
         final int port = 1344;
                 
         try {
             ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(new byte[] {});
             ICAPClientFactory.getInstance().getICAPClient(LOCALHOST, port, SERVICENAME)
                  .validateResource(ICAPMode.RESPMOD, 
-                                   new ICAPRequestInformation("userb", "emptyfile").addCustomHeader("Test", "Header"), 
+                                   new ICAPRequestInformation("userb", "emptyfile").addCustomHeader("Test", "Header").maxRequestTimeout(1), 
                                    new ICAPResource("build/test-emptyfile.com", resourceInputStream, 0));
         } catch (Exception ioe) { // I/O error
             LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
@@ -48,5 +48,29 @@ public class ICAPSocketTimeoutTest {
         }
 
         LOG.debug("END");
+    }
+    
+
+    /**
+     * Test connection
+     */
+    @Test
+    public void testConnection() {
+        int port = 1345; // invalid port
+        
+        try {
+            String hostName = "localhost1";
+            ICAPClientFactory.getInstance().getICAPClient(hostName, port, SERVICENAME, false);
+            fail("Expecting exception");
+        } catch (Exception e) {
+            LOG.debug("Connection error:", e);
+        }
+
+        try {
+            ICAPClientFactory.getInstance().getICAPClient(LOCALHOST, port, SERVICENAME, false);
+            fail("Expecting exception");
+        } catch (Exception e) {
+            LOG.debug("Connection error:", e);
+        }
     }
 }
