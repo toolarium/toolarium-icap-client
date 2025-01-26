@@ -50,8 +50,9 @@ public abstract class AbstractICAPClientTest {
      * Get the ICAP client
      *
      * @return the client
+     * @throws IOException In case of an I/O error
      */
-    protected ICAPClient getICAPClient() {
+    protected ICAPClient getICAPClient() throws IOException {
         return ICAPClientFactory.getInstance().getICAPClient("localhost", 1344, SERVICE).supportCompareVerifyIdenticalContent(true);
     }   
 

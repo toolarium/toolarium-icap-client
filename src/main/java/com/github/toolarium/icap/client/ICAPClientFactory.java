@@ -89,9 +89,10 @@ public final class ICAPClientFactory {
      *
      * @param icapUrl the icap url, e.g. icap://localhost:1344/srv_clamav or icaps://localhost:1344/srv_clamav
      * @return the ICAP client
+     * @throws IOException In case of an I/O error
      * @throws MalformedURLException In case of an invalid URL
      */
-    public ICAPClient getICAPClient(String icapUrl) throws MalformedURLException {
+    public ICAPClient getICAPClient(String icapUrl) throws MalformedURLException, IOException {
         return getICAPClient(icapUrl, DEFAULT_MAX_CACHE_AGE);
     }
 
@@ -103,8 +104,9 @@ public final class ICAPClientFactory {
      * @param servicePort the service port
      * @param serviceName the service name
      * @return the ICAP client
+     * @throws IOException In case of an I/O error
      */
-    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName) {
+    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName) throws IOException {
         return getICAPClient(hostName, servicePort, serviceName, false, DEFAULT_MAX_CACHE_AGE);
     }
 
@@ -117,8 +119,9 @@ public final class ICAPClientFactory {
      * @param serviceName the service name
      * @param secureConnection true to use secure ssl connection; otherwise false
      * @return the ICAP client
+     * @throws IOException In case of an I/O error
      */
-    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection) {
+    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection) throws IOException {
         return getICAPClient(hostName, servicePort, serviceName, secureConnection, DEFAULT_MAX_CACHE_AGE);
     }
 
@@ -130,8 +133,9 @@ public final class ICAPClientFactory {
      * @param cacheMaxAgeInSeconds the max age in seconds of the cache
      * @return the ICAP client
      * @throws MalformedURLException In case of an invalid URL
+     * @throws IOException In case of an I/O error
      */
-    public ICAPClient getICAPClient(String icapUrl, int cacheMaxAgeInSeconds) throws MalformedURLException {
+    public ICAPClient getICAPClient(String icapUrl, int cacheMaxAgeInSeconds) throws MalformedURLException, IOException {
         
         if (icapUrl == null || icapUrl.isBlank()) {
             throw new MalformedURLException("Invalid icap url!");
@@ -177,8 +181,9 @@ public final class ICAPClientFactory {
      * @param secureConnection true to use icaps connection (secured SSLSocket connection)
      * @param cacheMaxAgeInSeconds the max age in seconds of the cache
      * @return the ICAP client
+     * @throws IOException In case of an I/O error
      */
-    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection, int cacheMaxAgeInSeconds) {
+    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection, int cacheMaxAgeInSeconds) throws IOException {
         ICAPServiceInformation serviceInformation = new ICAPServiceInformation(hostName, servicePort, secureConnection, serviceName, cacheMaxAgeInSeconds);
         
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(serviceInformation);
@@ -193,6 +198,7 @@ public final class ICAPClientFactory {
                 LOG.debug("Set remote service configuration cache: " + serviceInformation);
             } catch (IOException e) {
                 LOG.debug("Could not get options from remote icap-server: " + e.getMessage(), e);
+                throw e;
             }
         } else {
             String logCacheDuration = "";
