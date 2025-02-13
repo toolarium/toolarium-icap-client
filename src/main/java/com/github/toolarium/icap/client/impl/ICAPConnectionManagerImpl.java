@@ -16,18 +16,19 @@ import javax.net.ssl.SSLSocketFactory;
 
 /**
  * Implements the {@link ICAPConnectionManager}.
- * 
+ *
  * @author patrick
  */
 public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
     private Integer defaultSocketTimeout;
+    private int defaultReadTimeout = 0;
 
     /**
      * @see com.github.toolarium.icap.client.ICAPConnectionManager#createSocket(java.lang.String, int, boolean, java.lang.Integer)
      */
     @Override
     public Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxRequestTimeout) throws UnknownHostException, IOException {
-        
+
         if (!secureConnection) {
             return createUnsecureSocket(hostname, port, maxRequestTimeout);
         }
@@ -44,19 +45,29 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
         this.defaultSocketTimeout = defaultSocketTimeout;
     }
 
-    
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setDefaultReadTimeout(int)
+     */
+    @Override
+    public void setDefaultReadTimeout(int defaultReadTimeout) {
+        this.defaultReadTimeout = defaultReadTimeout;
+    }
+
+
     /**
      * Create a simple socket
-     * 
+     *
      * @param hostname the name of host
      * @param port the port
-     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
+     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      * @return the socket
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
     protected Socket createUnsecureSocket(String hostname, int port, Integer maxRequestTimeout) throws UnknownHostException, IOException {
         Socket socket = new Socket();
+        socket.setSoTimeout(defaultReadTimeout);
         socket.connect(new InetSocketAddress(hostname,port), getRequestSocketTimeout(maxRequestTimeout));
         return socket;
     }
@@ -64,10 +75,10 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
 
     /**
      * Create a secure socket
-     * 
+     *
      * @param hostname the name of host
      * @param port the port
-     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
+     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      * @return the socket
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
@@ -75,6 +86,7 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
     protected Socket createSecureSocket(String hostname, int port, Integer maxRequestTimeout) throws UnknownHostException, IOException {
         SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
         Socket sslSocket = (SSLSocket)factory.createSocket();
+        sslSocket.setSoTimeout(defaultReadTimeout);
         sslSocket.connect(new InetSocketAddress(hostname,port), getRequestSocketTimeout(maxRequestTimeout));
         return sslSocket;
     }
