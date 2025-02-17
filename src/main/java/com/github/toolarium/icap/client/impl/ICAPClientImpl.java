@@ -100,7 +100,7 @@ public class ICAPClientImpl implements ICAPClient {
         validateRequestInformation(requestInformation);
         final String requestIdentifier = createRequestIdentifier("options", null);
         try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), 
-                                                    serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxRequestTimeout())) {
+                                                    serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxConnectionTimeout(), requestInformation.getMaxReadTimeout())) {
             icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
                              + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE
@@ -196,7 +196,7 @@ public class ICAPClientImpl implements ICAPClient {
 
         File resourceResponse = File.createTempFile(requestIdentifier, ".tmp");
         try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), 
-                                                    serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxRequestTimeout())) {
+                                                    serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxConnectionTimeout(), requestInformation.getMaxReadTimeout())) {
             ICAPHeaderInformation icapHeaderInformation = processResource(requestIdentifier, icapSocket, icapMode, requestInformation, resource, resourceResponse);
             icapHeaderInformation.getHeaders().remove(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE);
             

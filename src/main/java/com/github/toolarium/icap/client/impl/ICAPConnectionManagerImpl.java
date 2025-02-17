@@ -20,38 +20,38 @@ import javax.net.ssl.SSLSocketFactory;
  * @author patrick
  */
 public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
-    private Integer defaultSocketTimeout;
-    private int defaultReadTimeout = 0;
+    private Integer defaultSocketConnectionTimeout;
+    private Integer defaultSocketReadTimeout;
 
+    
     /**
      * @see com.github.toolarium.icap.client.ICAPConnectionManager#createSocket(java.lang.String, int, boolean, java.lang.Integer)
      */
     @Override
-    public Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxRequestTimeout) throws UnknownHostException, IOException {
-
+    public Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
         if (!secureConnection) {
-            return createUnsecureSocket(hostname, port, maxRequestTimeout);
+            return createUnsecureSocket(hostname, port, maxConnectionTimeout, maxReadTimeout);
         }
 
-        return createSecureSocket(hostname, port, maxRequestTimeout);
+        return createSecureSocket(hostname, port, maxConnectionTimeout, maxReadTimeout);
     }
 
 
     /**
-     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setDefaultSocketTimeout(java.lang.Integer)
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setDefaultSocketConnectionTimeout(java.lang.Integer)
      */
     @Override
-    public void setDefaultSocketTimeout(Integer defaultSocketTimeout) {
-        this.defaultSocketTimeout = defaultSocketTimeout;
+    public void setDefaultSocketConnectionTimeout(Integer defaultSocketConnectionTimeout) {
+        this.defaultSocketConnectionTimeout = defaultSocketConnectionTimeout;
     }
 
 
     /**
-     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setDefaultReadTimeout(int)
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setDefaultSocketReadTimeout(java.lang.Integer)
      */
     @Override
-    public void setDefaultReadTimeout(int defaultReadTimeout) {
-        this.defaultReadTimeout = defaultReadTimeout;
+    public void setDefaultSocketReadTimeout(Integer defaultSocketReadTimeout) {
+        this.defaultSocketReadTimeout = defaultSocketReadTimeout;
     }
 
 
@@ -60,15 +60,16 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      *
      * @param hostname the name of host
      * @param port the port
-     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
+     * @param maxConnectionTimeout the max connection timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
+     * @param maxReadTimeout the max read timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      * @return the socket
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
-    protected Socket createUnsecureSocket(String hostname, int port, Integer maxRequestTimeout) throws UnknownHostException, IOException {
+    protected Socket createUnsecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
         Socket socket = new Socket();
-        socket.setSoTimeout(defaultReadTimeout);
-        socket.connect(new InetSocketAddress(hostname,port), getRequestSocketTimeout(maxRequestTimeout));
+        socket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
+        socket.connect(new InetSocketAddress(hostname,port), getSocketConnectionTimeout(maxConnectionTimeout));
         return socket;
     }
 
@@ -78,35 +79,55 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      *
      * @param hostname the name of host
      * @param port the port
-     * @param maxRequestTimeout the max request timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
+     * @param maxConnectionTimeout the max connection timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
+     * @param maxReadTimeout the max read timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      * @return the socket
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
-    protected Socket createSecureSocket(String hostname, int port, Integer maxRequestTimeout) throws UnknownHostException, IOException {
+    protected Socket createSecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
         SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
         Socket sslSocket = (SSLSocket)factory.createSocket();
-        sslSocket.setSoTimeout(defaultReadTimeout);
-        sslSocket.connect(new InetSocketAddress(hostname,port), getRequestSocketTimeout(maxRequestTimeout));
+        sslSocket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
+        sslSocket.connect(new InetSocketAddress(hostname,port), getSocketConnectionTimeout(maxConnectionTimeout));
         return sslSocket;
     }
 
 
     /**
-     * Get the request socket timeout
+     * Get the socket connection timeout
      *
-     * @param maxRequestTimeout the max request timeout or null
+     * @param maxConnectionTimeout the max connection timeout or null
      * @return the socket timeout to use
      */
-    private int getRequestSocketTimeout(Integer maxRequestTimeout) {
+    private int getSocketConnectionTimeout(Integer maxConnectionTimeout) {
         int socketTimeout = 0;
-        if (defaultSocketTimeout != null && defaultSocketTimeout.intValue() >= 0) {
-            socketTimeout = defaultSocketTimeout.intValue();
+        if (defaultSocketConnectionTimeout != null && defaultSocketConnectionTimeout.intValue() >= 0) {
+            socketTimeout = defaultSocketConnectionTimeout.intValue();
         }
 
-        if (maxRequestTimeout != null && maxRequestTimeout.intValue() >= 0) {
-            socketTimeout = maxRequestTimeout.intValue();
+        if (maxConnectionTimeout != null && maxConnectionTimeout.intValue() >= 0) {
+            socketTimeout = maxConnectionTimeout.intValue();
         }
         return socketTimeout;
+    }
+
+
+    /**
+     * Get the read socket timeout
+     *
+     * @param maxReadTimeout the max read timeout or null
+     * @return the socket timeout to use
+     */
+    private int getReadSocketTimeout(Integer maxReadTimeout) {
+        int socketReadTimeout = 0;
+        if (defaultSocketReadTimeout != null && defaultSocketReadTimeout.intValue() >= 0) {
+            socketReadTimeout = defaultSocketReadTimeout.intValue();
+        }
+
+        if (maxReadTimeout != null && maxReadTimeout.intValue() >= 0) {
+            socketReadTimeout = maxReadTimeout.intValue();
+        }
+        return socketReadTimeout;
     }
 }

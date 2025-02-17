@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * Test socket timeouts
  *
@@ -35,20 +36,21 @@ public class ICAPSocketTimeoutTest {
     private static final String SERVICENAME = "srv_clamav";
     private static final Logger LOG = LoggerFactory.getLogger(ICAPSocketTimeoutTest.class);
 
+    
     /**
      * Socket timeout
      */
     @Test
     public void testSocketTimeout() {
         LOG.debug("START");
-        ICAPClientFactory.getInstance().getICAPConnectionManager().setDefaultSocketTimeout(10);
+        ICAPClientFactory.getInstance().getICAPConnectionManager().setDefaultSocketConnectionTimeout(10);
         final int port = 1344;
 
         try {
             ByteArrayInputStream resourceInputStream = new ByteArrayInputStream(new byte[] {});
             ICAPClientFactory.getInstance().getICAPClient(LOCALHOST, port, SERVICENAME)
                  .validateResource(ICAPMode.RESPMOD,
-                                   new ICAPRequestInformation("userb", "emptyfile").addCustomHeader("Test", "Header").maxRequestTimeout(1),
+                                   new ICAPRequestInformation("userb", "emptyfile").addCustomHeader("Test", "Header").maxConnectionTimeout(1),
                                    new ICAPResource("build/test-emptyfile.com", resourceInputStream, 0));
         } catch (Exception ioe) { // I/O error
             LOG.warn(RESOURCE_COULD_NOT_BE_ACCESSED + ioe.getMessage(), ioe);
@@ -58,6 +60,7 @@ public class ICAPSocketTimeoutTest {
         LOG.debug("END");
     }
 
+
     /**
      * Socket read timeout
      *
@@ -66,6 +69,7 @@ public class ICAPSocketTimeoutTest {
     @Test
     public void testSocketReadTimeout() throws IOException {
         int port = 12345;
+        
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             // start dummy server that accepts connections, but does not respond
             ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -87,7 +91,7 @@ public class ICAPSocketTimeoutTest {
 
             // Client: Open icap connection to dummy server
             ICAPClientFactory icapClientFactory = ICAPClientFactory.getInstance();
-            icapClientFactory.getICAPConnectionManager().setDefaultReadTimeout(1); // <== this is the timeout we test
+            icapClientFactory.getICAPConnectionManager().setDefaultSocketReadTimeout(1); // <== this is the timeout we test
 
             Exception e = assertThrows(SocketTimeoutException.class,
                 () -> icapClientFactory.getICAPClient(
@@ -104,6 +108,7 @@ public class ICAPSocketTimeoutTest {
             executor.shutdownNow();
         }
     }
+
 
     /**
      * Test connection

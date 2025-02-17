@@ -29,7 +29,8 @@ public class ICAPRequestInformation implements Serializable {
     private String username;
     private String requestSource;
     private Boolean allow204;
-    private Integer maxRequestTimeout;
+    private Integer maxConnectionTimeout;
+    private Integer maxReadTimeout;
     private Map<String, String> customHeaders;
 
 
@@ -67,7 +68,8 @@ public class ICAPRequestInformation implements Serializable {
         this.username = username;
         this.requestSource = requestSource;
         this.allow204 = allow204;
-        this.maxRequestTimeout = null;
+        this.maxConnectionTimeout = null;
+        this.maxReadTimeout = null;
         this.customHeaders = null;
     }
 
@@ -183,6 +185,34 @@ public class ICAPRequestInformation implements Serializable {
 
     
     /**
+     * Get the max connection timeout in milliseconds. By default there is no timeout set (null). 
+     * Any positive value will be set to the socket connection of the ICAP connection.
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
+     * until established or an error occurs. 
+     *
+     * @return the max request timeout
+     */
+    public Integer getMaxConnectionTimeout() {
+        return maxConnectionTimeout;
+    }
+
+    
+    /**
+     * Set max connection timeout in milliseconds. By default there is no timeout set (null). 
+     * Any positive value will be set to the socket connection of the ICAP connection.
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
+     * until established or an error occurs. 
+     *
+     * @param maxConnectionTimeout the max request timeout
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation maxConnectionTimeout(Integer maxConnectionTimeout) {
+        this.maxConnectionTimeout = maxConnectionTimeout;
+        return this;
+    }
+
+    
+    /**
      * Get the max request timeout in milliseconds. By default there is no timeout set (null). 
      * Any positive value will be set to the socket connection of the ICAP connection.
      * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
@@ -190,8 +220,8 @@ public class ICAPRequestInformation implements Serializable {
      *
      * @return the max request timeout
      */
-    public Integer getMaxRequestTimeout() {
-        return maxRequestTimeout;
+    public Integer getMaxReadTimeout() {
+        return maxReadTimeout;
     }
 
     
@@ -201,14 +231,14 @@ public class ICAPRequestInformation implements Serializable {
      * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
      * until established or an error occurs. 
      *
-     * @param maxRequestTimeout the max request timeout
+     * @param maxReadTimeout the max read timeout
      * @return the ICAPRequestInformation
      */
-    public ICAPRequestInformation maxRequestTimeout(Integer maxRequestTimeout) {
-        this.maxRequestTimeout = maxRequestTimeout;
+    public ICAPRequestInformation maxReadTimeout(Integer maxReadTimeout) {
+        this.maxReadTimeout = maxReadTimeout;
         return this;
     }
-
+    
     
     /**
      * Get the custom headers
@@ -254,7 +284,7 @@ public class ICAPRequestInformation implements Serializable {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(allow204, apiVersion, customHeaders, requestSource, userAgent, username);
+        return Objects.hash(allow204, apiVersion, customHeaders, maxConnectionTimeout, maxReadTimeout, requestSource, userAgent, username);
     }
 
 
@@ -278,21 +308,25 @@ public class ICAPRequestInformation implements Serializable {
         ICAPRequestInformation other = (ICAPRequestInformation) obj;
         return Objects.equals(allow204, other.allow204) && Objects.equals(apiVersion, other.apiVersion)
                 && Objects.equals(customHeaders, other.customHeaders)
+                && Objects.equals(maxConnectionTimeout, other.maxConnectionTimeout)
+                && Objects.equals(maxReadTimeout, other.maxReadTimeout)
                 && Objects.equals(requestSource, other.requestSource) && Objects.equals(userAgent, other.userAgent)
                 && Objects.equals(username, other.username);
     }
-    
-    
+
+   
     /**
      * @see java.lang.Object#toString()
      */
     @Override
     public String toString() {
-        return "ICAPRequestInformation [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username=" + username + ", requestSource=" + requestSource 
-                + ", allow204=" + allow204 + ", cutomHeaders=" + customHeaders + "]";
+        return "ICAPRequestInformation [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username="
+                + username + ", requestSource=" + requestSource + ", allow204=" + allow204 + ", maxConnectionTimeout="
+                + maxConnectionTimeout + ", maxReadTimeout=" + maxReadTimeout + ", customHeaders=" + customHeaders
+                + "]";
     }
 
-
+    
     /**
      * Prepare the source request
      *
