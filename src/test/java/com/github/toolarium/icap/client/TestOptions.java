@@ -6,6 +6,7 @@
 package com.github.toolarium.icap.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,6 +33,8 @@ public class TestOptions extends AbstractICAPClientTest {
     @Test
     public void testValidOptions() throws IOException {
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = getICAPClient().options();
+        assertNotNull(remoteServiceConfiguration.getHeaders());
+        assertEquals("[1024]", remoteServiceConfiguration.getHeaders().get("Preview").toString());
         
         List<ICAPMode> list = Arrays.asList(ICAPMode.values());
         for (ICAPMode mode : remoteServiceConfiguration.getOptionMethods()) {

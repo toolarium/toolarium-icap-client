@@ -10,6 +10,8 @@ import com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 
@@ -20,17 +22,18 @@ import java.util.Objects;
  */
 public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConfiguration, Serializable {
     private static final long serialVersionUID = -1296347334233061866L;
-    private int serverPreviewSize;
-    private boolean serverAllow204 = false;
-    private ICAPMode[] optionMethods;
-    private Instant timestamp;
-
+    private final int serverPreviewSize;
+    private final boolean serverAllow204;
+    private final ICAPMode[] optionMethods;
+    private final Instant timestamp;
+    private final Map<String, List<String>> headers;
+    
     
     /**
      * Constructor for ICAPRemoteServiceConfigurationImpl
      */
     public ICAPRemoteServiceConfigurationImpl() {
-        this(null, null, 1024, false);
+        this(null, null, 1024, false, null);
     }
 
 
@@ -41,12 +44,14 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @param optionMethods the option methods
      * @param serverPreviewSize the server preview size
      * @param serverAllow204 the server allow 204
+     * @param headers the icap header information
      */
-    public ICAPRemoteServiceConfigurationImpl(Instant timestamp, ICAPMode[] optionMethods, int serverPreviewSize, boolean serverAllow204) {
+    public ICAPRemoteServiceConfigurationImpl(Instant timestamp, ICAPMode[] optionMethods, int serverPreviewSize, boolean serverAllow204, Map<String, List<String>> headers) {
         this.timestamp = timestamp;
         this.optionMethods = optionMethods;
         this.serverPreviewSize = serverPreviewSize;
         this.serverAllow204 = serverAllow204;
+        this.headers = headers;
     }
 
 
@@ -84,8 +89,17 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
     public Instant getTimestamp() {
         return timestamp;
     }
+    
+    
+    /**
+     * @see com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration#getHeaders()
+     */
+    @Override
+    public Map<String, List<String>> getHeaders() {
+        return headers;
+    }
 
-
+    
     /**
      * @see java.lang.Object#hashCode()
      */
@@ -94,7 +108,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
         final int prime = 31;
         int result = 1;
         result = prime * result + Arrays.hashCode(optionMethods);
-        result = prime * result + Objects.hash(serverAllow204, serverPreviewSize, timestamp);
+        result = prime * result + Objects.hash(headers, serverAllow204, serverPreviewSize, timestamp);
         return result;
     }
 
@@ -117,7 +131,8 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
         }
         
         ICAPRemoteServiceConfigurationImpl other = (ICAPRemoteServiceConfigurationImpl) obj;
-        return Arrays.equals(optionMethods, other.optionMethods) && serverAllow204 == other.serverAllow204
+        return Objects.equals(headers, other.headers)
+                && Arrays.equals(optionMethods, other.optionMethods) && serverAllow204 == other.serverAllow204
                 && serverPreviewSize == other.serverPreviewSize && Objects.equals(timestamp, other.timestamp);
     }
 

@@ -23,9 +23,9 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
     private Integer defaultSocketConnectionTimeout;
     private Integer defaultSocketReadTimeout;
 
-    
+
     /**
-     * @see com.github.toolarium.icap.client.ICAPConnectionManager#createSocket(java.lang.String, int, boolean, java.lang.Integer)
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#createSocket(java.lang.String, int, boolean, java.lang.Integer, java.lang.Integer)
      */
     @Override
     public Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {

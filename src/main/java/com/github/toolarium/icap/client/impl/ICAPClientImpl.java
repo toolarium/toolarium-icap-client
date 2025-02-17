@@ -145,7 +145,7 @@ public class ICAPClientImpl implements ICAPClient {
                 result[i++] = ICAPMode.valueOf(method.trim());
             }
 
-            remoteServiceConfiguration = new ICAPRemoteServiceConfigurationImpl(Instant.now(), result, serverPreviewSize, serverAllow204);
+            remoteServiceConfiguration = new ICAPRemoteServiceConfigurationImpl(Instant.now(), result, serverPreviewSize, serverAllow204, icapHeaderInformation.getHeaders());
             return remoteServiceConfiguration;
         } catch (IOException e) {
             remoteServiceConfiguration = null;

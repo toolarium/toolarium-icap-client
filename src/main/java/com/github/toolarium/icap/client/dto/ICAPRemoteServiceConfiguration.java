@@ -6,6 +6,8 @@
 package com.github.toolarium.icap.client.dto;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -45,5 +47,12 @@ public interface ICAPRemoteServiceConfiguration {
      * @return the timestamp of the request
      */
     Instant getTimestamp();
-
+    
+    
+    /**
+     * Get the header entries
+     *
+     * @return the header entries
+     */
+    Map<String, List<String>> getHeaders();
 }
