@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Test ICAP client
- * 
+ *
  * @author Patrick Meier
  */
 public class ICAPNotAllow204Test extends AbstractICAPClientTest {
@@ -33,9 +33,9 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         setAllow204(false);
     }
 
-    
+
     /**
-     * Test valid 
+     * Test valid
      *
      * @throws IOException In case of an I/O error
      * @throws ContentBlockedException In case the content is blocked
@@ -46,22 +46,22 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testValidRequest", "ABCDEFGH"));
     }
 
-    
+
     /**
-     * Test valid 
+     * Test valid
      *
      * @throws IOException In case of an I/O error
      * @throws ContentBlockedException In case the content is blocked
      */
     @Test
-    public void testValidRequestWihtout204Support() throws IOException, ContentBlockedException {
-        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testValidRequestWihtout204Support", "ABCDEFGH"));
-        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testValidRequestWihtout204Support", "ABCDEFGH"));
+    public void testValidRequestWithout204Support() throws IOException, ContentBlockedException {
+        assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testValidRequestWithout204Support", "ABCDEFGH"));
+        assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testValidRequestWithout204Support", "ABCDEFGH"));
     }
 
-    
+
     /**
-     * Test valid 
+     * Test valid
      *
      * @throws IOException In case of an I/O error
      * @throws ContentBlockedException In case the content is blocked
@@ -72,39 +72,38 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testValidResponseRequest", "ABCDEFG"));
     }
 
-    
+
     /**
-     * Test valid 
+     * Test valid
      *
      * @throws IOException In case of an I/O error
      * @throws ContentBlockedException In case the content is blocked
      */
     @Test
-    public void testValidResponseWihtout204Support() throws IOException, ContentBlockedException {
+    public void testValidResponseWithout204Support() throws IOException, ContentBlockedException {
         assertUnmodifiedFile(validateResource(ICAPMode.REQMOD, "testValidRequestResource", "ABCDEFG"));
         assertUnmodifiedFile(validateResource(ICAPMode.RESPMOD, "testValidRequestResource", "ABCDEFG"));
     }
 
-    
+
     /**
-     * Test invalidate 
+     * Test invalidate
      *
      * @throws IOException In case of an I/O error
      */
     @Test
     public void testDetectVirusRequest() throws IOException {
-        ContentBlockedException ex = assertThrows(ContentBlockedException.class, () -> {
-            validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
-        });
-        
+        ContentBlockedException ex = assertThrows(ContentBlockedException.class,
+            () -> validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS));
+
         ICAPHeaderInformation icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
         assertEquals("1.0", icapHeaderInformation.getVersion());
         assertEquals("OK", icapHeaderInformation.getMessage());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_SERVER));
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));        
-        
+        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));
+
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_SERVER));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_CONNECTION));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ISTAG));
@@ -112,52 +111,48 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST));
         assertEicar(icapHeaderInformation);
-        
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        
+
+        assertFalse(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).isEmpty());
+        assertFalse(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).isEmpty());
+
         if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
-            assertFalse(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
+            assertFalse(Boolean.parseBoolean(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
         }
 
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
-        assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
+        assertEquals("res-hdr=0", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
+        assertEquals("res-body=170", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(447, ex.getContent().length());
-        
-        ex = assertThrows(ContentBlockedException.class, () -> {
-            validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
-        });
-        
+
+        ex = assertThrows(ContentBlockedException.class, () -> validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS));
+
         icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
         assertEquals("1.0", icapHeaderInformation.getVersion());
         assertEquals("OK", icapHeaderInformation.getMessage());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_SERVER));
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));        
+        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));
         assertEquals("[Server, Connection, ISTag, X-Infection-Found, X-Violations-Found, Encapsulated]", "" + icapHeaderInformation.getHeaders().keySet());
         assertEicar(icapHeaderInformation);
-        
+
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
-        assertEquals("res-body=108", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
+        assertEquals("res-hdr=0", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
+        assertEquals("res-body=108", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(3, ex.getContent().length());
         assertEquals("n/a", ex.getContent());
-    }    
+    }
 
 
     /**
-     * Test invalidate 
+     * Test invalidate
      *
      * @throws IOException In case of an I/O error
      */
     @Test
     public void testDetectVirusResponseRequest() throws IOException {
-        ContentBlockedException ex = assertThrows(ContentBlockedException.class, () -> {
-            validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
-        });
-        
+        ContentBlockedException ex = assertThrows(ContentBlockedException.class, () -> validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS));
+
         ICAPHeaderInformation icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
@@ -165,7 +160,7 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertEquals("OK", icapHeaderInformation.getMessage());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_SERVER));
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));
-        
+
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_SERVER));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_CONNECTION));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ISTAG));
@@ -174,22 +169,20 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST));
         assertEicar(icapHeaderInformation);
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        
+        assertFalse(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).isEmpty());
+        assertFalse(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).isEmpty());
+
         if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
-            assertFalse(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
-        }        
-        
-        assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
-        assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
+            assertFalse(Boolean.parseBoolean(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
+        }
+
+        assertEquals("res-hdr=0", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
+        assertEquals("res-body=170", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(447, ex.getContent().length());
 
-    
-        ex = assertThrows(ContentBlockedException.class, () -> {
-            validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
-        });
-        
+
+        ex = assertThrows(ContentBlockedException.class, () -> validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS));
+
         icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
@@ -200,10 +193,10 @@ public class ICAPNotAllow204Test extends AbstractICAPClientTest {
         assertEquals("[Server, Connection, ISTag, X-Infection-Found, X-Violations-Found, Encapsulated]", "" + icapHeaderInformation.getHeaders().keySet());
         assertEicar(icapHeaderInformation);
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        
-        assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
-        assertEquals("res-body=108", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
+
+        assertEquals("res-hdr=0", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
+        assertEquals("res-body=108", icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(3, ex.getContent().length());
         assertEquals("n/a", ex.getContent());
-    }    
+    }
 }

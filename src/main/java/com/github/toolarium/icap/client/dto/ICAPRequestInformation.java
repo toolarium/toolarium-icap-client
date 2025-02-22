@@ -15,10 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author Patrick Meier
  */
-public class ICAPRequestInformation implements Serializable {
+public final class ICAPRequestInformation implements Serializable {
     /** Default user agent */
     public static final String USER_AGENT = "toolarium ICAP-Client/1.1";
-    
+
     /** API version */
     public static final String API_VERSION = "1.0";
 
@@ -119,7 +119,7 @@ public class ICAPRequestInformation implements Serializable {
 
 
     /**
-     * Get the user name.
+     * Get the username.
      *
      * @return the use rname
      */
@@ -131,7 +131,7 @@ public class ICAPRequestInformation implements Serializable {
     /**
      * Sets the use rname.
      *
-     * @param username the user name to set
+     * @param username the username to set
      * @return the ICAPRequestInformation
      */
     public ICAPRequestInformation setUsername(String username) {
@@ -161,7 +161,7 @@ public class ICAPRequestInformation implements Serializable {
         return this;
     }
 
-    
+
     /**
      * Check if allow 204 status is enabled
      *
@@ -175,7 +175,7 @@ public class ICAPRequestInformation implements Serializable {
     /**
      * Set allow 204 status
      *
-     * @param allow204 allow 204 status; if it is set to null it will automatically selected if the server allows it.
+     * @param allow204 allow 204 status; if set to null it will automatically be selected if the server allows it.
      * @return the ICAPRequestInformation
      */
     public ICAPRequestInformation setAllow204(Boolean allow204) {
@@ -183,12 +183,12 @@ public class ICAPRequestInformation implements Serializable {
         return this;
     }
 
-    
+
     /**
-     * Get the max connection timeout in milliseconds. By default there is no timeout set (null). 
+     * Get the max connection timeout in milliseconds. By default, there is no timeout set (null).
      * Any positive value will be set to the socket connection of the ICAP connection.
-     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
-     * until established or an error occurs. 
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block
+     * until established or an error occurs.
      *
      * @return the max request timeout
      */
@@ -196,12 +196,12 @@ public class ICAPRequestInformation implements Serializable {
         return maxConnectionTimeout;
     }
 
-    
+
     /**
-     * Set max connection timeout in milliseconds. By default there is no timeout set (null). 
+     * Set max connection timeout in milliseconds. By default, there is no timeout set (null).
      * Any positive value will be set to the socket connection of the ICAP connection.
-     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
-     * until established or an error occurs. 
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block
+     * until established or an error occurs.
      *
      * @param maxConnectionTimeout the max request timeout
      * @return the ICAPRequestInformation
@@ -211,12 +211,12 @@ public class ICAPRequestInformation implements Serializable {
         return this;
     }
 
-    
+
     /**
-     * Get the max request timeout in milliseconds. By default there is no timeout set (null). 
+     * Get the max request timeout in milliseconds. By default, there is no timeout set (null).
      * Any positive value will be set to the socket connection of the ICAP connection.
-     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
-     * until established or an error occurs. 
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block
+     * until established or an error occurs.
      *
      * @return the max request timeout
      */
@@ -224,12 +224,12 @@ public class ICAPRequestInformation implements Serializable {
         return maxReadTimeout;
     }
 
-    
+
     /**
-     * Set max request timeout in milliseconds. By default there is no timeout set (null). 
+     * Set max request timeout in milliseconds. By default, there is no timeout set (null).
      * Any positive value will be set to the socket connection of the ICAP connection.
-     * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
-     * until established or an error occurs. 
+     * A timeout of zero is interpreted as an infinite timeout. The connection will then block
+     * until established or an error occurs.
      *
      * @param maxReadTimeout the max read timeout
      * @return the ICAPRequestInformation
@@ -238,8 +238,8 @@ public class ICAPRequestInformation implements Serializable {
         this.maxReadTimeout = maxReadTimeout;
         return this;
     }
-    
-    
+
+
     /**
      * Get the custom headers
      *
@@ -249,7 +249,7 @@ public class ICAPRequestInformation implements Serializable {
         return customHeaders;
     }
 
-    
+
     /**
      * Set the custom headers
      *
@@ -261,7 +261,7 @@ public class ICAPRequestInformation implements Serializable {
         return this;
     }
 
-    
+
     /**
      * Add custom header
      *
@@ -271,14 +271,14 @@ public class ICAPRequestInformation implements Serializable {
      */
     public ICAPRequestInformation addCustomHeader(String key, String value) {
         if (customHeaders == null) {
-            customHeaders = new ConcurrentHashMap<String, String>();
+            customHeaders = new ConcurrentHashMap<>();
         }
-        
+
         customHeaders.put(key, value);
         return this;
     }
 
-    
+
     /**
      * @see java.lang.Object#hashCode()
      */
@@ -296,15 +296,15 @@ public class ICAPRequestInformation implements Serializable {
         if (this == obj) {
             return true;
         }
-        
+
         if (obj == null) {
             return false;
         }
-        
+
         if (getClass() != obj.getClass()) {
             return false;
         }
-        
+
         ICAPRequestInformation other = (ICAPRequestInformation) obj;
         return Objects.equals(allow204, other.allow204) && Objects.equals(apiVersion, other.apiVersion)
                 && Objects.equals(customHeaders, other.customHeaders)
@@ -314,7 +314,7 @@ public class ICAPRequestInformation implements Serializable {
                 && Objects.equals(username, other.username);
     }
 
-   
+
     /**
      * @see java.lang.Object#toString()
      */
@@ -326,7 +326,7 @@ public class ICAPRequestInformation implements Serializable {
                 + "]";
     }
 
-    
+
     /**
      * Prepare the source request
      *
@@ -336,13 +336,9 @@ public class ICAPRequestInformation implements Serializable {
     public String prepareSourceRequest(final ICAPResource resource) {
         String sourceRequest = "";
         if (getUsername() != null) {
-            if (!sourceRequest.isEmpty()) {
-                sourceRequest += SEPARATOR;
-            }
-
             sourceRequest += "username: " + getUsername();
         }
-        
+
         if (getRequestSource() != null) {
             if (!sourceRequest.isEmpty()) {
                 sourceRequest += SEPARATOR;
@@ -364,10 +360,8 @@ public class ICAPRequestInformation implements Serializable {
             sourceRequest += "resource: " + resourceName;
         }
 
-        if (resourceLength != null && resourceLength.longValue() > 0) {
-            if (!sourceRequest.isEmpty()) {
-                sourceRequest += SEPARATOR;
-            }
+        if (resourceLength != null && resourceLength > 0) {
+            sourceRequest += SEPARATOR;
             sourceRequest += "length: " + resourceLength;
         }
         return sourceRequest;

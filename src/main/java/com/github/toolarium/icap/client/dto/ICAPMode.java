@@ -15,9 +15,9 @@ public enum ICAPMode {
     RESPMOD("res"),
     REQMOD("req"),
     FILEMOD("file");
-    
-    private String tag;
-    
+
+    private final String tag;
+
     /**
      * Constructor for ICAPMode
      *
@@ -27,9 +27,9 @@ public enum ICAPMode {
         this.tag = tag;
     }
 
-    
+
     /**
-     * Get the tag 
+     * Get the tag
      *
      * @return the tag
      */

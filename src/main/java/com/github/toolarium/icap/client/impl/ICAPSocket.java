@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -28,13 +29,13 @@ import org.slf4j.LoggerFactory;
  */
 public class ICAPSocket implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ICAPSocket.class);
-    private static final Charset StandardCharsetsUTF8 = Charset.forName("UTF-8");
-    
-    private String requestIdentifier;
-    private String connection;
-    private Socket socket;
-    private ChunkedInputStream is;
-    private OutputStream os;
+    private static final Charset StandardCharsetsUTF8 = StandardCharsets.UTF_8;
+
+    private final String requestIdentifier;
+    private final String connection;
+    private final Socket socket;
+    private final ChunkedInputStream is;
+    private final OutputStream os;
 
 
     /**
@@ -46,15 +47,15 @@ public class ICAPSocket implements AutoCloseable {
      * @param port the port
      * @param service the service
      * @param secureConnection true to establish a secured connection
-     * @param maxConnectionTimeout the max connection timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
-     * @param maxReadTimeout the max read timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block. 
+     * @param maxConnectionTimeout the max connection timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
+     * @param maxReadTimeout the max read timeout in milliseconds. By default there is no timeout set (null). A timeout of null or zero are interpreted as an infinite timeout. The connection will then block.
      * @throws IOException In case of an I/O error
      */
     public ICAPSocket(ICAPConnectionManager connectionManager, String requestIdentifier, String host, int port, String service, boolean secureConnection, Integer maxConnectionTimeout, Integer maxReadTimeout) throws IOException {
         this.requestIdentifier = requestIdentifier;
-        this.connection = "" + host + ":" + port + "/" + service;
+        this.connection = String.format("%s:%d/%s", host, port, service);
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Send create socket to [" + connection + "]");
+            LOG.debug("{}Send create socket to [{}]", requestIdentifier, connection);
         }
 
         try {
@@ -62,12 +63,12 @@ public class ICAPSocket implements AutoCloseable {
             is = new ChunkedInputStream(requestIdentifier, socket.getInputStream());
             os = socket.getOutputStream();
         } catch (IOException e) {
-            LOG.warn(requestIdentifier + "Could not connect to [" + connection + "]: " + e.getMessage());
+            LOG.warn("{}Could not connect to [{}]: {}", requestIdentifier, connection, e.getMessage());
             throw e;
         }
     }
 
-    
+
     /**
      * Write content
      *
@@ -76,13 +77,13 @@ public class ICAPSocket implements AutoCloseable {
      */
     public void write(String content) throws IOException {
         if (LOG.isDebugEnabled() && content.length() > 10) {
-            LOG.debug(requestIdentifier + "Send request:\n" + content);
+            LOG.debug("{}Send request:\n{}", requestIdentifier, content);
         }
-        
+
         write(content.getBytes(StandardCharsetsUTF8));
     }
 
-    
+
     /**
      * Write some bytes
      *
@@ -93,7 +94,7 @@ public class ICAPSocket implements AutoCloseable {
         os.write(bytes);
     }
 
-    
+
     /**
      * Write some bytes
      *
@@ -116,14 +117,14 @@ public class ICAPSocket implements AutoCloseable {
         os.flush();
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Flushed request of [" + connection + "]");
+            LOG.debug("{}Flushed request of [{}]", requestIdentifier, connection);
         }
     }
 
-    
+
     /**
      * Receive an expected ICAP header as response of a request.
-     * 
+     *
      * @param separator the separator
      * @param bufferSize the buffer size
      * @return the response header status
@@ -136,7 +137,7 @@ public class ICAPSocket implements AutoCloseable {
 
     /**
      * Write the server response.
-     * 
+     *
      * @param outputStream the output stream
      * @return the copied bytes
      * @throws IOException In case of an I/O error
@@ -145,25 +146,23 @@ public class ICAPSocket implements AutoCloseable {
         if (is == null || outputStream == null) {
             return 0;
         }
-        
+
         long totalSize = 0;
-        
+
         try {
             byte[] buf = new byte[ICAPClientUtil.INTERNAL_BUFFER_SIZE];
             int length;
             while ((length = is.read(buf)) > 0) {
-                if (length > 0) {
-                    outputStream.write(buf, 0, length);
-                }
+                outputStream.write(buf, 0, length);
                 totalSize += length;
             }
         } catch (RuntimeException ex) {
-            LOG.debug("Could not transfer all bytes from input to output stream: " + ex.getMessage());
+            LOG.debug("Could not transfer all bytes from input to output stream: {}", ex.getMessage());
             totalSize = -1;
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Process content [" + connection + "] copied bytes " + totalSize);
+            LOG.debug("{}Process content [{}] copied bytes {}", requestIdentifier, connection, totalSize);
         }
         return totalSize;
     }
@@ -179,49 +178,50 @@ public class ICAPSocket implements AutoCloseable {
      * @throws IOException In case of an I/O error
      */
     public ICAPHeaderInformation readICAPResponse(String requestIdentifier, final String separator, final int bufferSize) throws IOException {
-        
-        // read http header
-        Map<String, List<String>> header = readHTTPHeader(separator, bufferSize);
+
+        // read http headers
+        Map<String, List<String>> headers = readHTTPHeader(separator, bufferSize);
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Response header: " + header);
+            LOG.debug("{}Response headers: {}", requestIdentifier, headers);
         }
-        
+
         ICAPHeaderInformation icapHeaderInformation = null;
-        if (header.containsKey(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE) && !header.get(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE).isEmpty()) {            
-            String protocolHeaderLine = header.get(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE).get(0); // parse protocol line
+        if (headers.containsKey(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE) && !headers.get(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE).isEmpty()) {
+            String protocolHeaderLine = headers.get(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE).get(0); // parse protocol line
             if (protocolHeaderLine != null && !protocolHeaderLine.isBlank()) {
                 icapHeaderInformation = ICAPParser.getInstance().parseICAPHeaderInformation(protocolHeaderLine);
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug(requestIdentifier + "Received ICAP response status: " + protocolHeaderLine);
+                    LOG.debug("{}Received ICAP response status: {}", requestIdentifier, protocolHeaderLine);
                 }
             }
         }
 
         if (icapHeaderInformation == null) {
-            icapHeaderInformation = new ICAPHeaderInformation();
+            icapHeaderInformation = new ICAPHeaderInformation.Builder().withHeaders(headers).build();
+        } else {
+            // parse headers values
+            icapHeaderInformation.setHeaders(headers);
         }
 
-        // parse header values
-        icapHeaderInformation.setHeaders(header);
         return icapHeaderInformation;
     }
 
-    
+
     /**
      * @see java.lang.AutoCloseable#close()
      */
     @Override
     public void close() throws IOException {
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "Close socket of [" + connection + "]");
+            LOG.debug("{}Close socket of [{}]", requestIdentifier, connection);
         }
-        
+
         close(is);
         os.flush();
         close(os);
         socket.close();
     }
-    
+
 
     /**
      * Close

@@ -9,18 +9,18 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Desines the service information 
+ * Defines the service information
  * @author patrick
  */
 public class ICAPServiceInformation implements Serializable {
     private static final long serialVersionUID = 8790709509062253127L;
-    private String hostName;
-    private int servicePort;
-    private boolean secureConnection;
-    private String serviceName;
-    private int cacheMaxAgeInSeconds;
-    
-    
+    private final String hostName;
+    private final int servicePort;
+    private final boolean secureConnection;
+    private final String serviceName;
+    private final int cacheMaxAgeInSeconds;
+
+
     /**
      * Constructor for ICAPServiceInformation
      *
@@ -37,8 +37,8 @@ public class ICAPServiceInformation implements Serializable {
         this.serviceName = serviceName;
         this.cacheMaxAgeInSeconds = cacheMaxAgeInSeconds;
     }
-    
-    
+
+
     /**
      * Get the host name
      *
@@ -47,8 +47,8 @@ public class ICAPServiceInformation implements Serializable {
     public String getHostName() {
         return hostName;
     }
-    
-    
+
+
     /**
      * Get the service port
      *
@@ -58,9 +58,9 @@ public class ICAPServiceInformation implements Serializable {
         return servicePort;
     }
 
-    
+
     /**
-     * Is is a secure connection
+     * Checks if a secure connection is used
      *
      * @return true if it is a secure connection
      */
@@ -68,7 +68,7 @@ public class ICAPServiceInformation implements Serializable {
         return secureConnection;
     }
 
-    
+
     /**
      * Get the service name
      *
@@ -106,15 +106,15 @@ public class ICAPServiceInformation implements Serializable {
         if (this == obj)  {
             return true;
         }
-        
+
         if (obj == null) {
             return false;
         }
-        
-        if (getClass() != obj.getClass()) {            
+
+        if (getClass() != obj.getClass()) {
             return false;
         }
-        
+
         ICAPServiceInformation other = (ICAPServiceInformation) obj;
         return cacheMaxAgeInSeconds == other.cacheMaxAgeInSeconds && Objects.equals(hostName, other.hostName)
                 && secureConnection == other.secureConnection && Objects.equals(serviceName, other.serviceName)

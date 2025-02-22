@@ -20,11 +20,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Test options
- * 
+ *
  * @author Patrick Meier
  */
 public class TestOptions extends AbstractICAPClientTest {
-    
+
     /**
      * Test options
      *
@@ -35,26 +35,24 @@ public class TestOptions extends AbstractICAPClientTest {
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = getICAPClient().options();
         assertNotNull(remoteServiceConfiguration.getHeaders());
         assertEquals("[1024]", remoteServiceConfiguration.getHeaders().get("Preview").toString());
-        
+
         List<ICAPMode> list = Arrays.asList(ICAPMode.values());
         for (ICAPMode mode : remoteServiceConfiguration.getOptionMethods()) {
             assertTrue(list.contains(mode));
         }
-        
+
         assertEquals(1024, remoteServiceConfiguration.getServerPreviewSize());
     }
 
-    
+
     /**
      * Test options
      */
     @Test
     public void testInvalidRequest()  {
-        assertThrows(IOException.class, () -> {
-            ICAPClientFactory.getInstance().getICAPClient("localhost", 1345, SERVICE).options();
-        });
+        assertThrows(IOException.class, () -> ICAPClientFactory.getInstance().getICAPClient("localhost", 1345, SERVICE).options());
     }
-    
+
 
     /**
      * Test options

@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * ICAP encapsulated values
- *  
+ *
  * @author patrick
  */
 public class ICAPEncapsulatedValues {
@@ -21,7 +21,7 @@ public class ICAPEncapsulatedValues {
     private int offset;
     private int length;
 
-    
+
     /**
      * Constructor for EncapsulatedValues
      *
@@ -30,7 +30,7 @@ public class ICAPEncapsulatedValues {
     public ICAPEncapsulatedValues(ICAPHeaderInformation icapHeaderInformation) {
         offset = 0;
         length = 0;
-        
+
         if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_ENCAPSULATED)) {
             for (String expressionLine : icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED)) {
                 parseLine(expressionLine);
@@ -38,7 +38,7 @@ public class ICAPEncapsulatedValues {
         }
     }
 
-    
+
     /**
      * Constructor for EncapsulatedValues
      *
@@ -47,11 +47,11 @@ public class ICAPEncapsulatedValues {
     public ICAPEncapsulatedValues(String expressionLine) {
         offset = 0;
         length = 0;
-        
+
         parseLine(expressionLine);
     }
-    
-    
+
+
     /**
      * Get the offset
      *
@@ -61,7 +61,7 @@ public class ICAPEncapsulatedValues {
         return offset;
     }
 
-    
+
     /**
      * Get the length
      *
@@ -87,32 +87,32 @@ public class ICAPEncapsulatedValues {
             if (expressionLine.contains("hdr")) {
                 Integer parsedOffset = parseKeyValue("hdr", expressionLine.trim());
                 if (parsedOffset != null) {
-                    offset = parsedOffset.intValue();
+                    offset = parsedOffset;
                 }
             }
-            
+
             if (expressionLine.contains("body")) {
                 Integer parsedLength = parseKeyValue("body", expressionLine.trim());
                 if (parsedLength != null) {
-                    length = parsedLength.intValue();
+                    length = parsedLength;
                 }
             }
         } else {
-            LOG.debug("Parse encapsulated expression line [" + expressionLine + "].");
+            LOG.debug("Parse encapsulated expression line [{}].", expressionLine);
             String[] valueSplit = expressionLine.trim().split(",");
-            for (int i = 0; i < valueSplit.length; i++) {
-                Integer parsedOffset = parseKeyValue("hdr", valueSplit[i].trim());
+            for (String s : valueSplit) {
+                Integer parsedOffset = parseKeyValue("hdr", s.trim());
                 if (parsedOffset != null) {
-                    offset = parsedOffset.intValue();
+                    offset = parsedOffset;
                 }
-                
-                Integer parsedLength = parseKeyValue("body", valueSplit[i].trim());
+
+                Integer parsedLength = parseKeyValue("body", s.trim());
                 if (parsedLength != null) {
-                    length = parsedLength.intValue();
+                    length = parsedLength;
                 }
             }
         }
-        
+
         return true;
     }
 
@@ -125,17 +125,17 @@ public class ICAPEncapsulatedValues {
      * @return the value
      */
     private Integer parseKeyValue(String tag, String keyValue) {
-        LOG.debug("Parse encapsulated expression [" + keyValue + "].");
+        LOG.debug("Parse encapsulated expression [{}].", keyValue);
         int idx = keyValue.indexOf('=');
         if (idx > 0 && keyValue.substring(0, idx).contains("-" + tag)) {
             String value = keyValue.substring(idx + 1);
             try {
                 return Integer.parseInt(value);
             } catch (NumberFormatException e) {
-                LOG.debug("Invalid number [" + value + "]");
+                LOG.debug("Invalid number [{}]", value);
             }
         }
-        
+
         return null;
     }
 
@@ -145,6 +145,6 @@ public class ICAPEncapsulatedValues {
      */
     @Override
     public String toString() {
-        return "ICAPEncapsulatedValues [offset=" + offset + ", length=" + length + "]";
+        return String.format("ICAPEncapsulatedValues [offset=%d, length=%d]", offset, length);
     }
 }

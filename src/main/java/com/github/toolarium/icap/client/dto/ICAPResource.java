@@ -5,12 +5,8 @@
  */
 package com.github.toolarium.icap.client.dto;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.Serializable;
-import java.nio.file.Path;
 import java.util.Objects;
 
 
@@ -21,59 +17,22 @@ import java.util.Objects;
  */
 public class ICAPResource implements Serializable {
     private static final long serialVersionUID = -1034290022203558461L;
-    private String resourceName;
-    private InputStream resourceInputStream;
-    private long resourceLength;
 
-    
-    /**
-     * Constructor for ICAPResource
-     *
-     * @param resource the resource
-     * @throws IllegalArgumentException In case of invalid resource 
-     * @throws FileNotFoundException In case the resource don't exist 
-     */
-    public ICAPResource(Path resource) throws FileNotFoundException {
-        
-        if (resource == null) {
-            throw new IllegalArgumentException("Invalid resource!");
-        }
-        
-        File file = resource.toFile();
-        if (!file.exists()) {
-            throw new FileNotFoundException("Could not find resource [" + file + "]!");
-        }
-        
-        setResourceName(file.getName());
-        setResourceBody(new FileInputStream(file));
-        setResourceLength(file.length());
-    }
-
+    private final String resourceName;
+    private final InputStream resourceInputStream;
+    private final long resourceLength;
 
     /**
-     * Constructor for ICAPResource
-     *
-     * @param resourceInputStream the resource input stream
-     * @param resourceLength  the resource length
+     * Constructor
+     * @param name of the resource
+     * @param body of the resource
+     * @param length of the resource
      */
-    public ICAPResource(InputStream resourceInputStream, long resourceLength) {
-        this(null, resourceInputStream, resourceLength);
+    public ICAPResource(String name, InputStream body, long length) {
+        this.resourceName = name;
+        this.resourceInputStream = body;
+        this.resourceLength = length;
     }
-
-
-    /**
-     * Constructor for ICAPResource
-     *
-     * @param resourceName the name of the resource
-     * @param resourceInputStream the resource input stream
-     * @param resourceLength  the resource length
-     */
-    public ICAPResource(String resourceName, InputStream resourceInputStream, long resourceLength) {
-        setResourceName(resourceName);
-        setResourceBody(resourceInputStream);
-        setResourceLength(resourceLength);
-    }
-
 
     /**
      * Get the name of the resource.
@@ -84,40 +43,14 @@ public class ICAPResource implements Serializable {
         return resourceName;
     }
 
-
     /**
-     * Set the name of the resource.
-     *
-     * @param resourceName the name of the resource to set
-     * @return the ICAPResource
-     */
-    public ICAPResource setResourceName(String resourceName) {
-        this.resourceName = resourceName;
-        return this;
-    }
-
-
-    /**
-     * Gets the resource input stream.
+     * Get the resource input stream.
      *
      * @return the resource input stream
      */
     public InputStream getResourceBody() {
         return resourceInputStream;
     }
-
-
-    /**
-     * Set the resource input stream.
-     *
-     * @param resourceInputStream the resource input stream to set
-     * @return the ICAPResource
-     */
-    public ICAPResource setResourceBody(InputStream resourceInputStream) {
-        this.resourceInputStream = resourceInputStream;
-        return this;
-    }
-
 
     /**
      * Get the resource length.
@@ -128,50 +61,23 @@ public class ICAPResource implements Serializable {
         return resourceLength;
     }
 
-
-    /**
-     * Set the resource length.
-     *
-     * @param resourceLength the resource length to set
-     * @return the ICAPResource
-     */
-    public ICAPResource setResourceLength(long resourceLength) {
-        this.resourceLength = resourceLength;
-        return this;
-    }
-
-
-    /**
-     * @see java.lang.Object#hashCode()
-     */
     @Override
     public int hashCode() {
         return Objects.hash(resourceLength, resourceName);
     }
 
-
-    /**
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
         ICAPResource other = (ICAPResource) obj;
         return resourceLength == other.resourceLength && Objects.equals(resourceName, other.resourceName);
     }
 
-
-    /**
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
         return "ICAPResource [resourceName=" + resourceName + ", resourceLength=" + resourceLength + "]";

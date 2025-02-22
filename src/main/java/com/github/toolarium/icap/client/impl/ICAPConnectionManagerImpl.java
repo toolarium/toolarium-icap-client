@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 
@@ -66,7 +65,7 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
-    protected Socket createUnsecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
+    protected Socket createUnsecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws IOException {
         Socket socket = new Socket();
         socket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
         socket.connect(new InetSocketAddress(hostname,port), getSocketConnectionTimeout(maxConnectionTimeout));
@@ -85,9 +84,9 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws UnknownHostException In case of unknown host
      * @throws IOException In case of an I/O error
      */
-    protected Socket createSecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
+    protected Socket createSecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws IOException {
         SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-        Socket sslSocket = (SSLSocket)factory.createSocket();
+        Socket sslSocket = factory.createSocket();
         sslSocket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
         sslSocket.connect(new InetSocketAddress(hostname,port), getSocketConnectionTimeout(maxConnectionTimeout));
         return sslSocket;
@@ -102,12 +101,12 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     private int getSocketConnectionTimeout(Integer maxConnectionTimeout) {
         int socketTimeout = 0;
-        if (defaultSocketConnectionTimeout != null && defaultSocketConnectionTimeout.intValue() >= 0) {
-            socketTimeout = defaultSocketConnectionTimeout.intValue();
+        if (defaultSocketConnectionTimeout != null && defaultSocketConnectionTimeout >= 0) {
+            socketTimeout = defaultSocketConnectionTimeout;
         }
 
-        if (maxConnectionTimeout != null && maxConnectionTimeout.intValue() >= 0) {
-            socketTimeout = maxConnectionTimeout.intValue();
+        if (maxConnectionTimeout != null && maxConnectionTimeout >= 0) {
+            socketTimeout = maxConnectionTimeout;
         }
         return socketTimeout;
     }
@@ -121,12 +120,12 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     private int getReadSocketTimeout(Integer maxReadTimeout) {
         int socketReadTimeout = 0;
-        if (defaultSocketReadTimeout != null && defaultSocketReadTimeout.intValue() >= 0) {
-            socketReadTimeout = defaultSocketReadTimeout.intValue();
+        if (defaultSocketReadTimeout != null && defaultSocketReadTimeout >= 0) {
+            socketReadTimeout = defaultSocketReadTimeout;
         }
 
-        if (maxReadTimeout != null && maxReadTimeout.intValue() >= 0) {
-            socketReadTimeout = maxReadTimeout.intValue();
+        if (maxReadTimeout != null && maxReadTimeout >= 0) {
+            socketReadTimeout = maxReadTimeout;
         }
         return socketReadTimeout;
     }

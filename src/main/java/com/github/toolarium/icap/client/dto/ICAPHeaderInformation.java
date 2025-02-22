@@ -6,208 +6,219 @@
 package com.github.toolarium.icap.client.dto;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
 
 /**
  * The ICAP header information
  *
  * @author Patrick Meier
  */
-public class ICAPHeaderInformation implements Serializable {
-    private static final long serialVersionUID = -2307425606272132956L;   
-    private String protocol;
-    private String version;
-    private int status;
-    private String message;
-    private Map<String, List<String>> headers;
+public final class ICAPHeaderInformation implements Serializable {
+    private static final long serialVersionUID = -2307425606272132956L;
 
+    private final String protocol;
+    private final String version;
+    private final int status;
+    private final String message;
+    private final Map<String, List<String>> headers;
 
     /**
-     * Constructor for ICAPHeaderInformation
+     * Private constructor to enforce the use of the Builder.
+     *
+     * @param builder the builder to create the header information from
      */
-    public ICAPHeaderInformation() {
-        protocol = "ICAP";
-        version = "";
-        status = 0;
-        message = "";
-        headers = null;
+    private ICAPHeaderInformation(Builder builder) {
+        this.protocol = builder.protocol;
+        this.version = builder.version;
+        this.status = builder.status;
+        this.message = builder.message;
+        this.headers = new LinkedHashMap<>(); // LinkedHashMap preserves order of insertion
+        headers.putAll(builder.headers);
     }
 
-
     /**
-     * Get the protocol
-     *
-     * @return the protocol
+     * Get the protocol.
+     * @return the protocol.
      */
     public String getProtocol() {
         return protocol;
     }
 
-
     /**
-     * Set the protocol
-     *
-     * @param protocol the protocol
-     * @return the ICAPHeaderInformation
-     */
-    public ICAPHeaderInformation setProtocol(String protocol) {
-        this.protocol = protocol;
-        return this;
-    }
-
-
-    /**
-     * Get the version
-     *
-     * @return the version
+     * Get the version.
+     * @return the version.
      */
     public String getVersion() {
         return version;
     }
 
-
-
     /**
-     * Set the version
-     *
-     * @param version the version
-     * @return the ICAPHeaderInformation
-     */
-    public ICAPHeaderInformation setVersion(String version) {
-        this.version = version;
-        return this;
-    }
-
-
-    /**
-     * Get the status
-     *
-     * @return the status
+     * Get the status.
+     * @return the status.
      */
     public int getStatus() {
         return status;
     }
 
-
     /**
-     * Set the status
-     *
-     * @param status the status
-     * @return the ICAPHeaderInformation
-     */
-    public ICAPHeaderInformation setStatus(int status) {
-        this.status = status;
-        return this;
-    }
-
-
-    /**
-     * Get the message
-     *
-     * @return the message
+     * Get the message.
+     * @return the message.
      */
     public String getMessage() {
         return message;
     }
 
-
     /**
-     * Set the message
-     *
-     * @param message the message
-     * @return the ICAPHeaderInformation
-     */
-    public ICAPHeaderInformation setMessage(String message) {
-        this.message = message;
-        return this;
-    }
-
-
-    /**
-     * Set the header entries
-     *
-     * @param headers the headers
-     * @return the ICAPHeaderInformation
-     */
-    public ICAPHeaderInformation setHeaders(Map<String, List<String>> headers) {
-        this.headers = headers;
-        return this;
-    }
-
-
-    /**
-     * Get the header entries
-     *
-     * @return the header entries
+     * Get the headers.
+     * @return an unmodifiable map of headers.
      */
     public Map<String, List<String>> getHeaders() {
         return headers;
     }
 
-    
     /**
-     * Check if a specific header exists
-     *
-     * @param header the header
-     * @return true if it exists
+     * Check if a specific header exists.
+     * @param header the header name.
+     * @return true if it exists.
      */
     public boolean containsHeader(String header) {
         return headers.containsKey(header);
     }
 
-
     /**
-     * Get the header values
-     *
-     * @param header the header
-     * @return the header values
+     * Get the header values.
+     * @param header the header name.
+     * @return the header values or an empty list if not found.
      */
     public List<String> getHeaderValues(String header) {
-        return headers.get(header);
+        return headers.getOrDefault(header, Collections.emptyList());
     }
 
+    /**
+     * Set the header values
+     *
+     * @param headers to set
+     */
+    public void setHeaders(Map<String, List<String>> headers) {
+        this.headers.putAll(headers);
+    }
 
     /**
-     * @see java.lang.Object#hashCode()
+     * Builder for ICAPHeaderInformation.
      */
+    public static class Builder {
+        private String protocol = "ICAP";
+        private String version = "";
+        private int status = 0;
+        private String message = "";
+        private final Map<String, List<String>> headers = new LinkedHashMap<>();
+
+        /**
+         * Set the protocol
+         *
+         * @param protocol to be set
+         * @return the builder
+         */
+        public Builder withProtocol(String protocol) {
+            this.protocol = protocol;
+            return this;
+        }
+
+        /**
+         * Set the version
+         *
+         * @param version to be set
+         * @return the builder
+         */
+        public Builder withVersion(String version) {
+            this.version = version;
+            return this;
+        }
+
+        /**
+         * Set the status
+         *
+         * @param status to be set
+         * @return the builder
+         */
+        public Builder withStatus(int status) {
+            this.status = status;
+            return this;
+        }
+
+        /**
+         * Set the message
+         *
+         * @param message to be set
+         * @return the builder
+         */
+        public Builder withMessage(String message) {
+            this.message = message;
+            return this;
+        }
+
+        /**
+         * Set the headers
+         *
+         * @param headers to be set
+         * @return the builder
+         */
+        public Builder withHeaders(Map<String, List<String>> headers) {
+            this.headers.putAll(headers);
+            return this;
+        }
+
+        /**
+         * Set a single header
+         *
+         * @param header key to be set
+         * @param values values to be set
+         * @return the builder
+         */
+        public Builder withHeader(String header, List<String> values) {
+            this.headers.put(header, values);
+            return this;
+        }
+
+        /**
+         * Build the ICAPInformation instance
+         *
+         * @return a new ICAPInformation instance
+         */
+        public ICAPHeaderInformation build() {
+            return new ICAPHeaderInformation(this);
+        }
+    }
+
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + Objects.hash(headers, message, protocol, status, version);
-        return result;
+        return Objects.hash(headers, message, protocol, status, version);
     }
 
-
-    /**
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
         ICAPHeaderInformation other = (ICAPHeaderInformation) obj;
-        return Objects.equals(headers, other.headers)
-                && Objects.equals(message, other.message) && Objects.equals(protocol, other.protocol)
-                && status == other.status && Objects.equals(version, other.version);
+        return status == other.status
+            && Objects.equals(protocol, other.protocol)
+            && Objects.equals(version, other.version)
+            && Objects.equals(message, other.message)
+            && Objects.equals(headers, other.headers);
     }
 
-
-    /**
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
-        return "ICAPHeaderInformation [protocol=" + protocol + ", version=" + version + ", status=" + status + ", message=" + message + ", headers=" + headers + "]";
+        return String.format(
+            "ICAPHeaderInformation [protocol=%s, version=%s, status=%d, message=%s, headers=%s]",
+            protocol, version, status, message, headers);
     }
 }

@@ -14,6 +14,8 @@ import java.net.MalformedURLException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,10 +28,10 @@ import org.slf4j.LoggerFactory;
 public final class ICAPClientFactory {
     private static final int DEFAULT_MAX_CACHE_AGE = 12 * 60 * 60;
     private static final Logger LOG = LoggerFactory.getLogger(ICAPClientFactory.class);
-    private Map<ICAPServiceInformation, ICAPRemoteServiceConfiguration> serviceCache;
+    private final Map<ICAPServiceInformation, ICAPRemoteServiceConfiguration> serviceCache;
     private ICAPConnectionManager connectionManager;
-    
-    
+
+
     /**
      * Private class, the only instance of the singelton which will be created by accessing the holder class.
      *
@@ -48,7 +50,7 @@ public final class ICAPClientFactory {
         connectionManager = new ICAPConnectionManagerImpl();
     }
 
-    
+
     /**
      * Get the instance
      *
@@ -58,32 +60,32 @@ public final class ICAPClientFactory {
         return HOLDER.INSTANCE;
     }
 
-    
+
     /**
      * Gets the current connection manager
      *
-     * @return the connection manager   
+     * @return the connection manager
      */
     public ICAPConnectionManager getICAPConnectionManager() {
         return connectionManager;
     }
 
-    
+
     /**
      * Sets the connection manager
      *
-     * @param connectionManager sets a connection manager in which the establishment of the connection can take place in a controlled manner   
+     * @param connectionManager sets a connection manager in which the establishment of the connection can take place in a controlled manner
      * @throws IllegalArgumentException In case of an invalid connection manager
      */
     public void setICAPConnectionManager(ICAPConnectionManager connectionManager) {
         if (connectionManager == null) {
             throw new IllegalArgumentException("Invalid connection manager!");
         }
-        
+
         this.connectionManager = connectionManager;
     }
-    
-    
+
+
     /**
      * Get the ICAP client
      *
@@ -96,7 +98,7 @@ public final class ICAPClientFactory {
         return getICAPClient(icapUrl, DEFAULT_MAX_CACHE_AGE);
     }
 
-    
+
     /**
      * Get the ICAP client
      *
@@ -110,7 +112,7 @@ public final class ICAPClientFactory {
         return getICAPClient(hostName, servicePort, serviceName, false, DEFAULT_MAX_CACHE_AGE);
     }
 
-    
+
     /**
      * Get the ICAP client
      *
@@ -121,11 +123,11 @@ public final class ICAPClientFactory {
      * @return the ICAP client
      * @throws IOException In case of an I/O error
      */
-    public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection) throws IOException {
+    ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection) throws IOException {
         return getICAPClient(hostName, servicePort, serviceName, secureConnection, DEFAULT_MAX_CACHE_AGE);
     }
 
-    
+
     /**
      * Get the ICAP client
      *
@@ -136,41 +138,40 @@ public final class ICAPClientFactory {
      * @throws IOException In case of an I/O error
      */
     public ICAPClient getICAPClient(String icapUrl, int cacheMaxAgeInSeconds) throws MalformedURLException, IOException {
-        
         if (icapUrl == null || icapUrl.isBlank()) {
             throw new MalformedURLException("Invalid icap url!");
         }
-        
-        String url = icapUrl.trim();
-        int idx = url.indexOf(':');
-        if (idx < 0 || !(url.toLowerCase().startsWith("icap:") || url.toLowerCase().startsWith("icaps:"))) {
-            throw new MalformedURLException("Invalid icap url, expected url starts with icap prototcol, e.g. icap://...!");
-        }
-        
-        url = url.substring(idx + 1).trim();
-        while (!url.isEmpty() && url.startsWith("/")) {
-            url = url.substring(1);
+
+        // Regex breakdown:
+        //   ^(icap[s]?)://+        -> Matches protocol "icap" or "icaps" followed by "://", allowing extra slashes.
+        //   ([^:/]+)               -> Captures the hostname (any characters except ':' or '/').
+        //   (?::(\\d+))?           -> Optionally captures the port number (digits after a colon).
+        //   (?:/(.*))?             -> Optionally captures the service name/path following a slash.
+        //   $                      -> End of string.
+        Pattern pattern = Pattern.compile("^(icap[s]?)://+([^:/]+)(?::(\\d+))?(?:/(.*))?$", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(icapUrl.trim());
+
+        if (!matcher.matches()) {
+            throw new MalformedURLException("Invalid icap url, expected url starts with icap protocol, e.g. icap://...!");
         }
 
+        String protocol = matcher.group(1);
+        String hostName = matcher.group(2);
+        String portStr = matcher.group(3);
         String serviceName = "";
-        idx = url.indexOf('/');
-        if (idx > 0) {
-            serviceName = url.substring(idx + 1).trim();
-            url = url.substring(0, idx).trim();
+        if (matcher.group(4) != null) {
+            serviceName = matcher.group(4).trim();
         }
-        
-        String hostName = url.trim();
+
         int servicePort = 1344;
-        idx = url.indexOf(':');
-        if (idx > 0) {
-            hostName = url.substring(0, idx).trim();
-            servicePort = Integer.parseInt(url.substring(idx + 1).trim());
+        if (portStr != null && !portStr.isEmpty()) {
+            servicePort = Integer.parseInt(portStr.trim());
         }
-        
-        boolean secureConnection = icapUrl.toLowerCase().trim().startsWith("icaps:");
+        boolean secureConnection = protocol.equalsIgnoreCase("icaps");
+
         return getICAPClient(hostName, servicePort, serviceName, secureConnection, cacheMaxAgeInSeconds);
     }
-    
+
 
     /**
      * Get the ICAP client
@@ -185,32 +186,31 @@ public final class ICAPClientFactory {
      */
     public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection, int cacheMaxAgeInSeconds) throws IOException {
         ICAPServiceInformation serviceInformation = new ICAPServiceInformation(hostName, servicePort, secureConnection, serviceName, cacheMaxAgeInSeconds);
-        
+
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(serviceInformation);
 
-        if (remoteServiceConfiguration == null 
-                || remoteServiceConfiguration.getTimestamp() == null 
-                || ((Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond()) > serviceInformation.getCacheMaxAgeInSeconds())) { 
+        if (remoteServiceConfiguration == null
+                || remoteServiceConfiguration.getTimestamp() == null
+                || ((Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond()) > serviceInformation.getCacheMaxAgeInSeconds())) {
             try {
                 ICAPClientImpl clientImpl = new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, remoteServiceConfiguration);
                 remoteServiceConfiguration = clientImpl.options();
                 serviceCache.put(serviceInformation, remoteServiceConfiguration);
-                LOG.debug("Set remote service configuration cache: " + serviceInformation);
+                LOG.debug("Set remote service configuration cache: {}", serviceInformation);
             } catch (IOException e) {
-                LOG.debug("Could not get options from remote icap-server: " + e.getMessage(), e);
+                LOG.debug("Could not get options from remote icap-server: {}", e.getMessage(), e);
                 throw e;
             }
         } else {
             String logCacheDuration = "";
-            Long diff = null;
             if (remoteServiceConfiguration.getTimestamp() != null) {
-                diff = serviceInformation.getCacheMaxAgeInSeconds() + (Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond());
+                long diff = serviceInformation.getCacheMaxAgeInSeconds() + (Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond());
                 logCacheDuration = "(valid for " + diff + " seconds)";
             }
-            
-            LOG.debug("Found remote service configuration in cache " + logCacheDuration + ": " + serviceInformation);
+
+            LOG.debug("Found remote service configuration in cache {}: {}", logCacheDuration, serviceInformation);
         }
-        
+
         return new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, remoteServiceConfiguration);
     }
 }

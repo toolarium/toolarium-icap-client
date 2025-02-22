@@ -17,7 +17,7 @@ import java.util.Objects;
 
 /**
  * Implements the {@link ICAPRemoteServiceConfiguration}.
- *  
+ *
  * @author patrick
  */
 public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConfiguration, Serializable {
@@ -27,8 +27,8 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
     private final ICAPMode[] optionMethods;
     private final Instant timestamp;
     private final Map<String, List<String>> headers;
-    
-    
+
+
     /**
      * Constructor for ICAPRemoteServiceConfigurationImpl
      */
@@ -39,7 +39,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
 
     /**
      * Constructor for RemoteServiceConfiguration
-     * 
+     *
      * @param timestamp the timestamp
      * @param optionMethods the option methods
      * @param serverPreviewSize the server preview size
@@ -89,8 +89,8 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
     public Instant getTimestamp() {
         return timestamp;
     }
-    
-    
+
+
     /**
      * @see com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration#getHeaders()
      */
@@ -99,7 +99,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
         return headers;
     }
 
-    
+
     /**
      * @see java.lang.Object#hashCode()
      */
@@ -121,15 +121,15 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
         if (this == obj) {
             return true;
         }
-        
+
         if (obj == null) {
             return false;
         }
-        
+
         if (getClass() != obj.getClass()) {
             return false;
         }
-        
+
         ICAPRemoteServiceConfigurationImpl other = (ICAPRemoteServiceConfigurationImpl) obj;
         return Objects.equals(headers, other.headers)
                 && Arrays.equals(optionMethods, other.optionMethods) && serverAllow204 == other.serverAllow204
@@ -142,9 +142,9 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      */
     @Override
     public String toString() {
-        return "ICAPRemoteServiceConfigurationImpl [serverPreviewSize=" + serverPreviewSize + ", serverAllow204="
-                + serverAllow204 + ", optionMethods=" + Arrays.toString(optionMethods) + ", timestamp=" + timestamp
-                + "]";
+        return String.format(
+            "ICAPRemoteServiceConfigurationImpl [serverPreviewSize=%d, serverAllow204=%b, optionMethods=%s, timestamp=%s]",
+            serverPreviewSize, serverAllow204, Arrays.toString(optionMethods), timestamp);
     }
 }
 
