@@ -1,4 +1,4 @@
 major.number        = 1
 minor.number        = 3
-revision.number     = 9
-qualifier           = 
+revision.number     = 10
+qualifier           = SNAPSHOT
