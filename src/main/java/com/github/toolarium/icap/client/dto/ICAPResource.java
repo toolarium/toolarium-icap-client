@@ -93,6 +93,10 @@ public class ICAPResource implements Serializable {
      */
     public ICAPResource setResourceName(String resourceName) {
         this.resourceName = resourceName;
+        
+        if (this.resourceName == null || this.resourceName.isBlank()) {
+            this.resourceName = "content";
+        }
         return this;
     }
 

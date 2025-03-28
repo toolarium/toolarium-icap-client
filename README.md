@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/toolarium/toolarium-icap-client)](https://github.com/toolarium/toolarium-icap-client/blob/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.3.8)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.3.8/jar)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.3.9)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.3.9/jar)
 [![javadoc](https://javadoc.io/badge2/com.github.toolarium/toolarium-icap-client/javadoc.svg)](https://javadoc.io/doc/com.github.toolarium/toolarium-icap-client)
 
 # toolarium-icap-client
@@ -20,7 +20,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ```groovy
 dependencies {
-    implementation "com.github.toolarium:toolarium-icap-client:1.3.8"
+    implementation "com.github.toolarium:toolarium-icap-client:1.3.9"
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 <dependency>
     <groupId>com.github.toolarium</groupId>
     <artifactId>toolarium-icap-client</artifactId>
-    <version>1.3.8</version>
+    <version>1.3.9</version>
 </dependency>
 ```
 
