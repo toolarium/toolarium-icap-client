@@ -6,6 +6,7 @@
 package com.github.toolarium.icap.client.dto;
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +24,7 @@ public class ICAPHeaderInformation implements Serializable {
     private int status;
     private String message;
     private Map<String, List<String>> headers;
+    private Map<String, List<String>> trailers;
 
 
     /**
@@ -33,7 +35,7 @@ public class ICAPHeaderInformation implements Serializable {
         version = "";
         status = 0;
         message = "";
-        headers = null;
+        headers = new LinkedHashMap<>();
     }
 
 
@@ -149,6 +151,28 @@ public class ICAPHeaderInformation implements Serializable {
 
     
     /**
+     * Get the trailer headers parsed after the chunked body (RFC 3507 §4.3.1).
+     *
+     * @return the trailer headers, or null if none present
+     */
+    public Map<String, List<String>> getTrailers() {
+        return trailers;
+    }
+
+
+    /**
+     * Set the trailer headers.
+     *
+     * @param trailers the trailer headers
+     * @return the ICAPHeaderInformation
+     */
+    public ICAPHeaderInformation setTrailers(Map<String, List<String>> trailers) {
+        this.trailers = trailers;
+        return this;
+    }
+
+
+    /**
      * Check if a specific header exists
      *
      * @param header the header
@@ -177,7 +201,7 @@ public class ICAPHeaderInformation implements Serializable {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + Objects.hash(headers, message, protocol, status, version);
+        result = prime * result + Objects.hash(headers, trailers, message, protocol, status, version);
         return result;
     }
 
@@ -197,7 +221,7 @@ public class ICAPHeaderInformation implements Serializable {
             return false;
         }
         ICAPHeaderInformation other = (ICAPHeaderInformation) obj;
-        return Objects.equals(headers, other.headers)
+        return Objects.equals(headers, other.headers) && Objects.equals(trailers, other.trailers)
                 && Objects.equals(message, other.message) && Objects.equals(protocol, other.protocol)
                 && status == other.status && Objects.equals(version, other.version);
     }
@@ -208,6 +232,6 @@ public class ICAPHeaderInformation implements Serializable {
      */
     @Override
     public String toString() {
-        return "ICAPHeaderInformation [protocol=" + protocol + ", version=" + version + ", status=" + status + ", message=" + message + ", headers=" + headers + "]";
+        return "ICAPHeaderInformation [protocol=" + protocol + ", version=" + version + ", status=" + status + ", message=" + message + ", headers=" + headers + ", trailers=" + trailers + "]";
     }
 }

@@ -72,4 +72,14 @@ public interface ICAPClient {
      * @return this client
      */
     ICAPClient supportCompareVerifyIdenticalContent(boolean supportCompareVerifyIdenticalContent);
+
+
+    /**
+     * Set the default request information used for all requests that do not provide their own.
+     * This allows configuring authorization, user agent, timeouts etc. once.
+     *
+     * @param defaultRequestInformation the default request information
+     * @return this client
+     */
+    ICAPClient setDefaultRequestInformation(ICAPRequestInformation defaultRequestInformation);
 }

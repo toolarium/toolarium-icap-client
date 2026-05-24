@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [ 1.3.10 ] - 2025-04-07
+## [ 1.4.0 ] - 2026-05-24
+### Added
+- Added UnknownIOException with statusCode field to access ICAP response headers on server error status codes (PR #25, issue #12).
+- Added ICAPRequestException for 4xx client errors (RFC 3507 §4.3.3) with statusCode and ICAPHeaderInformation.
+- Added granular error status code handling: 400, 404, 405, 408 throw ICAPRequestException; 500, 501, 502, 503, 505 throw UnknownIOException with descriptive messages.
+- Added connection pooling support (disabled by default, opt-in via setMaxPoolConnectionsPerHost).
+- Added RFC 3507 §4.10 OPTIONS response parsing: Options-TTL, Max-Connections, Service-ID, Transfer-Preview, Transfer-Ignore, Transfer-Complete.
+- Added Options-TTL support: cache TTL is now derived from the server-advertised Options-TTL when available, falling back to the client-configured default.
+- Added Max-Connections enforcement: pool size is reduced when it exceeds the server-advertised limit (logged as warning); user-defined lower limits are kept (logged as info).
+- Added first-class Authorization header support for ICAP authentication (RFC 3507 §7.1) via ICAPRequestInformation.setAuthorization().
+- Added ICAPClient.setDefaultRequestInformation() to configure authorization, user agent, timeouts etc. once for all requests.
+
+### Fixed
+- Fixed ClassCastException in ChunkedInputStream when CR is followed by non-LF byte.
+- Fixed duplicate readHeader() in ChunkedInputStream causing REQMOD body parsing errors (issue #12).
+- Fixed chunk extension handling per RFC 2616 Section 3.6.1, e.g. "0; ieof" (issue #12).
+- Fixed socket and stream leak when close() encounters flush failure.
+- Fixed NPE in ICAPHeaderInformation.containsHeader() when headers not yet initialized.
+- Fixed DigestInputStream not being closed after resource transfer.
+- Fixed temp file deletion not guaranteed; added deleteOnExit fallback.
+- Fixed race condition in service cache causing duplicate OPTIONS requests.
+- Fixed RuntimeExceptions being silently swallowed in processContent.
+- Fixed REQMOD response encapsulated body parsing: server error responses with res-body are now correctly read (RFC 3507 §4.4.1).
+
+### Changed
+- Increased default preview size from 1024 to 4096 bytes (RFC 3507 §4.5 SHOULD).
+- Added trailer header support after chunked body terminator (RFC 3507 §4.3.1).
+- Added Upgrade, Cache-Control, Expires, Pragma, Date, Trailer header constants for RFC 3507 §4.3.1 / §5 / §7.2 compliance.
+- Added Via header to encapsulated HTTP requests for surrogate identification (RFC 3507 §4.3).
+- Improved Connection header handling: explicit detection of both "close" and "keep-alive" from server responses (RFC 3507 §4.1).
+- Set default socket timeouts to 30s (connection) and 60s (read) to prevent thread hangs.
+- Improved request identifier uniqueness using UUID instead of String.hashCode().
+- SHA256 digest computation now only performed when compare/verify is enabled.
+- Increased internal copy buffer size from 1024 to 8192 bytes.
+- Replaced String concatenation with StringBuilder in hot paths.
+- Limited hex dump in debug logging to 256 bytes per chunk.
+- Reuse ByteArrayOutputStream in header parsing loop to reduce allocations.
+- Limited threat response file reading to 64KB to prevent OOM on large responses.
+- Use Files.createTempFile for secure temp file creation.
+- Explicit options() call now forces refresh instead of returning stale cache.
+- Added retry logic (up to 3 retries with backoff) for transient connection failures.
+- Improved cache duration log calculation.
+
+### Security
+- Enabled TLS hostname verification for icaps:// connections using HTTPS endpoint identification algorithm.
+- Added explicit startHandshake() to surface certificate errors on connect.
+- Fixed CRLF header injection via custom headers, User-Agent and RequestSource.
+- Added Transfer-Encoding and Content-Length to custom header blocklist.
+- Added bounds on header parsing (max 128 headers, 64KB total) to prevent OOM.
+- Sanitized resource names in log output to prevent log injection.
 
 ## [ 1.3.9 ] - 2025-04-07
 ### Fixed

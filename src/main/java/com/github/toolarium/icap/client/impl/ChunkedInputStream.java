@@ -12,7 +12,6 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PushbackInputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,12 +31,15 @@ public class ChunkedInputStream extends BufferedInputStream {
     private static final byte CR = '\r';
     private static final byte LF = '\n';
     private static final String NEWLINE = "" + (char)CR + (char)LF;
+    private static final int MAX_HEADER_COUNT = 128;
+    private static final int MAX_HEADER_BYTES = 64 * 1024;
 
     private String requestIdentifier;
     private int currentChunkPos;
     private int currentChunkSize;
     private boolean ended;
     private Map<String, List<String>> headers;
+    private Map<String, List<String>> trailers;
     private long chunkSize;
     private long maxChunkSize;
 
@@ -142,7 +144,8 @@ public class ChunkedInputStream extends BufferedInputStream {
             readBytes = super.read(b, off, sizeToRead);
             
             if (LOG.isDebugEnabled()) {
-                LOG.debug(requestIdentifier + "Raw data\n" + HexDump.getInstance().hexDump(new String(b, off, sizeToRead)));
+                int dumpLen = Math.min(sizeToRead, 256);
+                LOG.debug(requestIdentifier + "Raw data (" + sizeToRead + " bytes, showing " + dumpLen + ")\n" + HexDump.getInstance().hexDump(new String(b, off, dumpLen)));
             }
             
             if (maxChunkSize <= 0) {
@@ -174,6 +177,16 @@ public class ChunkedInputStream extends BufferedInputStream {
     public Map<String, List<String>> getHeaders() {
         return headers;
     }
+
+
+    /**
+     * Get the trailer headers parsed after the last chunk (RFC 3507 §4.3.1).
+     *
+     * @return the trailer headers, or null if none present
+     */
+    public Map<String, List<String>> getTrailers() {
+        return trailers;
+    }
     
     
     /**
@@ -184,13 +197,23 @@ public class ChunkedInputStream extends BufferedInputStream {
      */
     public Map<String, List<String>> readHeader() throws IOException {
         List<String> headerLines = new ArrayList<>();
-        String orgHeader = "";
+        StringBuilder orgHeaderBuilder = new StringBuilder();
+        int totalHeaderBytes = 0;
+        ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
         String line = null;
         do {
-            line = readLine(new ByteArrayOutputStream());
+            lineBuffer.reset();
+            line = readLine(lineBuffer);
             if (line != null && line.length() > 0) {
                 headerLines.add(line);
-                orgHeader += line + NEWLINE;
+                orgHeaderBuilder.append(line).append(NEWLINE);
+                totalHeaderBytes += line.length() + 2;
+                if (headerLines.size() > MAX_HEADER_COUNT) {
+                    throw new IOException("Header count exceeds maximum of " + MAX_HEADER_COUNT);
+                }
+                if (totalHeaderBytes > MAX_HEADER_BYTES) {
+                    throw new IOException("Header size exceeds maximum of " + MAX_HEADER_BYTES + " bytes");
+                }
             }
         } while (line != null && line.length() > 0);
             
@@ -208,7 +231,7 @@ public class ChunkedInputStream extends BufferedInputStream {
         }
         
         if (LOG.isDebugEnabled()) {
-            LOG.debug(requestIdentifier + "HTTP headers:\n" + orgHeader);
+            LOG.debug(requestIdentifier + "HTTP headers:\n" + orgHeaderBuilder);
         }
         
         return headers;
@@ -260,19 +283,63 @@ public class ChunkedInputStream extends BufferedInputStream {
 
         if (line.toString().startsWith("GET") || line.toString().startsWith("POST")) {
             readHeader();
-            readHeader();
             line = readLine(new ByteArrayOutputStream());
+
+            // In RESPMOD, response headers follow the request headers (RFC 3507 4.8.2).
+            // In REQMOD with body only, the chunk size follows directly (RFC 3507 4.8.3).
+            if (line != null && line.startsWith("HTTP")) {
+                readHeader();
+                line = readLine(new ByteArrayOutputStream());
+                if (line != null && line.length() == 0) {
+                    line = readLine(new ByteArrayOutputStream());
+                }
+            }
         }
 
-        if (line.endsWith(";")) {
-            line = line.substring(0, line.length() - 1);
+        int semiIdx = line.indexOf(';');
+        if (semiIdx >= 0) {
+            line = line.substring(0, semiIdx);
         }
         
         try {
             currentChunkSize = Integer.parseInt(line.trim(), 16);
-            return currentChunkSize;
         } catch (NumberFormatException e) {
             throw new IOException("Bad chunk header [" + line + "]:" + e.getMessage());
+        }
+
+        // RFC 3507 §4.3.1: after the zero-length terminating chunk, read any trailer headers
+        if (currentChunkSize == 0) {
+            readTrailers();
+            ended = true;
+        }
+
+        return currentChunkSize;
+    }
+
+
+    /**
+     * Read trailer headers after the final zero-length chunk (RFC 3507 §4.3.1).
+     * Trailers appear between the "0\r\n" and the final "\r\n".
+     *
+     * @throws IOException In case of an I/O error
+     */
+    private void readTrailers() throws IOException {
+        List<String> trailerLines = new ArrayList<>();
+        ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
+        String line;
+        do {
+            lineBuffer.reset();
+            line = readLine(lineBuffer);
+            if (line != null && !line.isEmpty()) {
+                trailerLines.add(line);
+            }
+        } while (line != null && !line.isEmpty());
+
+        if (!trailerLines.isEmpty()) {
+            trailers = ICAPParser.getInstance().parseHeader(trailerLines);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(requestIdentifier + "Trailer headers: " + trailers);
+            }
         }
     }
     
@@ -322,8 +389,8 @@ public class ChunkedInputStream extends BufferedInputStream {
 
         if (b == CR) {
             b = super.read();
-            if (b != LF) {
-                ((PushbackInputStream)in).unread(1);
+            if (b != LF && b != -1) {
+                buffer.write(b);
             }
         } else {
             return null;

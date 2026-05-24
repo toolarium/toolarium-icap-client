@@ -95,20 +95,20 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=108", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
-        assertEquals(3, ex.getContent().length());
-        assertEquals("n/a", ex.getContent());
-        
+        // RFC 3507 §4.4.1: REQMOD response with res-body is now correctly parsed
+        assertEquals(447, ex.getContent().length());
+
         ex = assertThrows(ContentBlockedException.class, () -> {
             validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
         });
-        
+
         icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
         assertEquals("1.0", icapHeaderInformation.getVersion());
         assertEquals("OK", icapHeaderInformation.getMessage());
         assertEquals("[C-ICAP/0.4.4]", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_SERVER));
-        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));        
+        assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ISTAG).toString().startsWith("[CI0001-"));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_SERVER));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_CONNECTION));
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_ISTAG));
@@ -118,7 +118,7 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         assertEicar(icapHeaderInformation);
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        
+
         if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
             assertFalse(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
         }
@@ -127,11 +127,11 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(447, ex.getContent().length());
-    }    
+    }
 
 
     /**
-     * Test invalidate 
+     * Test invalidate
      *
      * @throws IOException In case of an I/O error
      */
@@ -140,7 +140,7 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         ContentBlockedException ex = assertThrows(ContentBlockedException.class, () -> {
             validateResource(ICAPMode.REQMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
         });
-        
+
         ICAPHeaderInformation icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
@@ -156,24 +156,24 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST));
         assertEicar(icapHeaderInformation);
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        
+
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        
+
         if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
             assertFalse(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
         }
-        
+
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=108", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
-        assertEquals(3, ex.getContent().length());
-        assertEquals("n/a", ex.getContent());
+        // RFC 3507 §4.4.1: REQMOD response with res-body is now correctly parsed
+        assertEquals(447, ex.getContent().length());
 
-                
+
         ex = assertThrows(ContentBlockedException.class, () -> {
             validateResource(ICAPMode.RESPMOD, "testDetectVirusResource", ICAPTestVirusConstants.REQUEST_BODY_VIRUS);
         });
-        
+
         icapHeaderInformation = ex.getICAPHeaderInformation();
         assertEquals("ICAP", icapHeaderInformation.getProtocol());
         assertEquals(200, icapHeaderInformation.getStatus());
@@ -189,16 +189,16 @@ public class ICAPAllow204Tests extends AbstractICAPClientTest {
         assertTrue(icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST));
         assertEicar(icapHeaderInformation);
         assertEquals(2, icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).size());
-        
+
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST).get(0).length() > 0);
         assertTrue(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST).get(0).length() > 0);
-        
+
         if (icapHeaderInformation.getHeaders().containsKey(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT)) {
             assertFalse(Boolean.valueOf(icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0)));
         }
-        
+
         assertEquals("res-hdr=0", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(0));
         assertEquals("res-body=170", "" + icapHeaderInformation.getHeaders().get(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(1));
         assertEquals(447, ex.getContent().length());
-    }    
+    }
 }

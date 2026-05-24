@@ -12,15 +12,32 @@ package com.github.toolarium.icap.client.dto;
  * @author Patrick Meier
  */
 public interface ICAPConstants {
-    // HTTP header headers
+    // HTTP/ICAP common headers (RFC 3507 §4.3.1)
     String HEADER_KEY_SERVER = "Server";
     String HEADER_KEY_CONNECTION = "Connection";
     String HEADER_KEY_ISTAG = "ISTag";
     String HEADER_KEY_CONTENT_LENGTH = "Content-Length";
     String HEADER_KEY_TRANSFER_ENCODING = "Transfer-Encoding";
     String HEADER_KEY_ENCAPSULATED = "Encapsulated";
-    
-    // ICAP header headers
+    String HEADER_KEY_AUTHORIZATION = "Authorization";
+    String HEADER_KEY_DATE = "Date";
+    String HEADER_KEY_TRAILER = "Trailer";
+
+    // Read-only: accessible via ICAPHeaderInformation.getHeaders() but not acted upon by the library.
+    // Upgrade (RFC 3507 §7.2): in-band TLS negotiation. Use icaps:// for TLS instead.
+    String HEADER_KEY_UPGRADE = "Upgrade";
+    // Caching directives (RFC 3507 §5): inspect server-advertised caching policy. The library does not cache ICAP responses.
+    String HEADER_KEY_CACHE_CONTROL = "Cache-Control";
+    String HEADER_KEY_EXPIRES = "Expires";
+    String HEADER_KEY_PRAGMA = "Pragma";
+
+    // ICAP header headers (RFC 3507 §4.10)
+    String HEADER_KEY_OPTIONS_TTL = "Options-TTL";
+    String HEADER_KEY_MAX_CONNECTIONS = "Max-Connections";
+    String HEADER_KEY_SERVICE_ID = "Service-ID";
+    String HEADER_KEY_TRANSFER_PREVIEW = "Transfer-Preview";
+    String HEADER_KEY_TRANSFER_IGNORE = "Transfer-Ignore";
+    String HEADER_KEY_TRANSFER_COMPLETE = "Transfer-Complete";
     String HEADER_KEY_PREVIEW = "Preview";
     String HEADER_KEY_ALLOW = "Allow";
     String HEADER_KEY_X_VIOLATIONS_FOUND = "X-Violations-Found";

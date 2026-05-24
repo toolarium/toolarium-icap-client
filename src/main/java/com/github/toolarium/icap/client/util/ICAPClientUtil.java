@@ -28,7 +28,7 @@ import java.text.StringCharacterIterator;
  */
 public final class ICAPClientUtil {
     /** INTERNAL COPY BUFFER */
-    public static final int INTERNAL_BUFFER_SIZE = 1024;
+    public static final int INTERNAL_BUFFER_SIZE = 8192;
 
 
     /**
@@ -36,7 +36,7 @@ public final class ICAPClientUtil {
      *
      * @author Patrick Meier
      */
-    private static class HOLDER {
+    private static final class HOLDER {
         static final ICAPClientUtil INSTANCE = new ICAPClientUtil();
     }
 

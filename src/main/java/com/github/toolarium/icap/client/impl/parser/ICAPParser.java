@@ -29,7 +29,7 @@ public final class ICAPParser {
      *
      * @author patrick
      */
-    private static class HOLDER {
+    private static final class HOLDER {
         static final ICAPParser INSTANCE = new ICAPParser();
     }
 

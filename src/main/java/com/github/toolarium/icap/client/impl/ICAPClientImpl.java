@@ -15,19 +15,22 @@ import com.github.toolarium.icap.client.dto.ICAPRequestInformation;
 import com.github.toolarium.icap.client.dto.ICAPResource;
 import com.github.toolarium.icap.client.dto.ICAPServiceInformation;
 import com.github.toolarium.icap.client.exception.ContentBlockedException;
+import com.github.toolarium.icap.client.exception.ICAPRequestException;
+import com.github.toolarium.icap.client.exception.UnknownIOException;
 import com.github.toolarium.icap.client.impl.dto.ICAPRemoteServiceConfigurationImpl;
 import com.github.toolarium.icap.client.util.ICAPClientUtil;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLEncoder;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,7 @@ public class ICAPClientImpl implements ICAPClient {
     private int bufferSize = 8192;
     private String messageDigestAlgorithm = "SHA-256";
     private boolean supportCompareVerifyIdenticalContent;
+    private ICAPRequestInformation defaultRequestInformation;
 
 
     /**
@@ -72,38 +76,50 @@ public class ICAPClientImpl implements ICAPClient {
     /**
      * @see com.github.toolarium.icap.client.ICAPClient#supportCompareVerifyIdenticalContent(boolean)
      */
-    @Override    
+    @Override
     public ICAPClient supportCompareVerifyIdenticalContent(boolean supportCompareVerifyIdenticalContent) {
         this.supportCompareVerifyIdenticalContent = supportCompareVerifyIdenticalContent;
         return this;
     }
 
-    
+
     /**
-     * @see com.github.toolarium.icap.client.ICAPClient#options()
+     * @see com.github.toolarium.icap.client.ICAPClient#setDefaultRequestInformation(com.github.toolarium.icap.client.dto.ICAPRequestInformation)
      */
-    @Override    
-    public ICAPRemoteServiceConfiguration options() throws IOException {
-        return options(new ICAPRequestInformation());
+    @Override
+    public ICAPClient setDefaultRequestInformation(ICAPRequestInformation defaultRequestInformation) {
+        this.defaultRequestInformation = defaultRequestInformation;
+        return this;
     }
-    
+
 
     /**
      * @see com.github.toolarium.icap.client.ICAPClient#options()
      */
-    @Override    
+    @Override
+    public ICAPRemoteServiceConfiguration options() throws IOException {
+        remoteServiceConfiguration = null;
+        return options(getEffectiveRequestInformation(null));
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPClient#options()
+     */
+    @Override
     public ICAPRemoteServiceConfiguration options(final ICAPRequestInformation requestInformation) throws IOException {
         if (remoteServiceConfiguration != null) {
             return remoteServiceConfiguration;
         }
-        
+
         validateRequestInformation(requestInformation);
         final String requestIdentifier = createRequestIdentifier("options", null);
         try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), 
                                                     serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxConnectionTimeout(), requestInformation.getMaxReadTimeout())) {
-            icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
+            icapSocket.write("OPTIONS icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
-                             + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE
+                             + "User-Agent: " + sanitizeHeaderValue(requestInformation.getUserAgent()) + NEWLINE
+                             + createAuthorizationHeader(requestInformation)
                              + createCustomHeaders(requestInformation)
                              + ICAPConstants.HEADER_KEY_ENCAPSULATED + ": null-body=0" + NEWLINE + NEWLINE);
             icapSocket.flush();
@@ -113,9 +129,9 @@ public class ICAPClientImpl implements ICAPClient {
                 throw new IOException("Could not resolve options!");
             }
             
-            int serverPreviewSize = 1024;
-            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW) 
-                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null 
+            int serverPreviewSize = 4096; // RFC 3507 §4.5: clients SHOULD support at least 4096 bytes
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_PREVIEW)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW) != null
                     && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).size() > 0) {
                 try {
                     serverPreviewSize = Integer.parseInt(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_PREVIEW).get(0));
@@ -128,24 +144,71 @@ public class ICAPClientImpl implements ICAPClient {
             }
 
             boolean serverAllow204 = false;
-            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_ALLOW) 
-                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ALLOW) != null 
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_ALLOW)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ALLOW) != null
                     && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ALLOW).size() > 0) {
                 serverAllow204 = Boolean.valueOf(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ALLOW).get(0).equalsIgnoreCase("204"));
             }
-            
-            LOG.info(requestIdentifier + "Valid service [" 
+
+            // Parse Options-TTL (RFC 3507 §4.10)
+            int optionsTTL = -1;
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_OPTIONS_TTL)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_OPTIONS_TTL) != null
+                    && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_OPTIONS_TTL).isEmpty()) {
+                try {
+                    optionsTTL = Integer.parseInt(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_OPTIONS_TTL).get(0).trim());
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(requestIdentifier + "Server Options-TTL: " + optionsTTL + " seconds");
+                    }
+                } catch (NumberFormatException e) {
+                    LOG.warn(requestIdentifier + "Could not parse Options-TTL [" + icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_OPTIONS_TTL).get(0) + "]: " + e.getMessage());
+                }
+            }
+
+            // Parse Max-Connections (RFC 3507 §4.10)
+            int maxConnections = -1;
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_MAX_CONNECTIONS)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_MAX_CONNECTIONS) != null
+                    && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_MAX_CONNECTIONS).isEmpty()) {
+                try {
+                    maxConnections = Integer.parseInt(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_MAX_CONNECTIONS).get(0).trim());
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(requestIdentifier + "Server Max-Connections: " + maxConnections);
+                    }
+                } catch (NumberFormatException e) {
+                    LOG.warn(requestIdentifier + "Could not parse Max-Connections [" + icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_MAX_CONNECTIONS).get(0) + "]: " + e.getMessage());
+                }
+            }
+
+            LOG.info(requestIdentifier + "Valid service ["
                      + icapHeaderInformation.getStatus() + "/" + icapHeaderInformation.getMessage() + "], "
                      + "allow 204: " + serverAllow204 + ", "
                      + "available methods: " + icapHeaderInformation.getHeaderValues("Methods"));
-            
+
             int i = 0;
             ICAPMode[] result = new ICAPMode[icapHeaderInformation.getHeaderValues("Methods").size()];
             for (String method : icapHeaderInformation.getHeaderValues("Methods")) {
                 result[i++] = ICAPMode.valueOf(method.trim());
             }
 
-            remoteServiceConfiguration = new ICAPRemoteServiceConfigurationImpl(Instant.now(), result, serverPreviewSize, serverAllow204, icapHeaderInformation.getHeaders());
+            ICAPRemoteServiceConfigurationImpl config = new ICAPRemoteServiceConfigurationImpl(
+                    Instant.now(), result, serverPreviewSize, serverAllow204,
+                    icapHeaderInformation.getHeaders());
+            config.setOptionsTTL(optionsTTL);
+            config.setMaxConnections(maxConnections);
+
+            // Parse Service-ID (RFC 3507 §4.10)
+            if (icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_SERVICE_ID)
+                    && icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_SERVICE_ID) != null
+                    && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_SERVICE_ID).isEmpty()) {
+                config.setServiceId(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_SERVICE_ID).get(0).trim());
+            }
+
+            // Parse Transfer-Preview, Transfer-Ignore, Transfer-Complete (RFC 3507 §4.10.2)
+            config.setTransferPreview(parseTransferExtensions(icapHeaderInformation, ICAPConstants.HEADER_KEY_TRANSFER_PREVIEW));
+            config.setTransferIgnore(parseTransferExtensions(icapHeaderInformation, ICAPConstants.HEADER_KEY_TRANSFER_IGNORE));
+            config.setTransferComplete(parseTransferExtensions(icapHeaderInformation, ICAPConstants.HEADER_KEY_TRANSFER_COMPLETE));
+            remoteServiceConfiguration = config;
             return remoteServiceConfiguration;
         } catch (IOException e) {
             remoteServiceConfiguration = null;
@@ -159,7 +222,7 @@ public class ICAPClientImpl implements ICAPClient {
      */
     @Override
     public ICAPHeaderInformation validateResource(final ICAPMode mode, final ICAPResource resource) throws IOException, ContentBlockedException {
-        return validateResource(mode, new ICAPRequestInformation(), resource);
+        return validateResource(mode, getEffectiveRequestInformation(null), resource);
     }
 
 
@@ -179,7 +242,7 @@ public class ICAPClientImpl implements ICAPClient {
             icapMode = inputMode;
         }
 
-        final String sourceRequest = requestInformation.prepareSourceRequest(resource);
+        final String sourceRequest = sanitizeLogValue(requestInformation.prepareSourceRequest(resource));
         final String requestIdentifier = createRequestIdentifier(icapMode.name(), sourceRequest);
         LOG.info(requestIdentifier + "Validate resource (" + sourceRequest + ")");
 
@@ -194,52 +257,83 @@ public class ICAPClientImpl implements ICAPClient {
             previewSize = (int)resource.getResourceLength();
         }
 
-        File resourceResponse = File.createTempFile(requestIdentifier, ".tmp");
-        try (ICAPSocket icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(), 
-                                                    serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxConnectionTimeout(), requestInformation.getMaxReadTimeout())) {
+        File resourceResponse = java.nio.file.Files.createTempFile("icap-", ".tmp").toFile();
+        ICAPSocket icapSocket = null;
+        try {
+            icapSocket = new ICAPSocket(connectionManager, requestIdentifier, serviceInformation.getHostName(), serviceInformation.getServicePort(),
+                                        serviceInformation.getServiceName(), serviceInformation.isSecureConnection(), requestInformation.getMaxConnectionTimeout(), requestInformation.getMaxReadTimeout());
             ICAPHeaderInformation icapHeaderInformation = processResource(requestIdentifier, icapSocket, icapMode, requestInformation, resource, resourceResponse);
             icapHeaderInformation.getHeaders().remove(ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE);
-            
+
             if (icapHeaderInformation.getStatus() == 200) {
-                String threadInformation = "";
+                StringBuilder threadInformationBuilder = new StringBuilder();
 
                 for (Map.Entry<String, List<String>> e: icapHeaderInformation.getHeaders().entrySet()) {
                     if (e.getKey().toLowerCase().startsWith("x-")) {
-                        threadInformation += "- " + e.getKey() + ": " + e.getValue() + "\n";
+                        threadInformationBuilder.append("- ").append(e.getKey()).append(": ").append(e.getValue()).append("\n");
                     }
                 }
-                
+                String threadInformation = threadInformationBuilder.toString().trim();
+
                 // verify if there is a thread is found taken from header
                 if (hasThreadHeaderInformation(icapHeaderInformation)) {
                     String threadHeaderInformation = readThreadHeaderInformation(icapMode, icapHeaderInformation, resourceResponse);
-                    String msg = "Threat found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
+                    String msg = "Threat found in resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation;
                     LOG.info(requestIdentifier + msg);
-                    throw new ContentBlockedException(msg, icapHeaderInformation, threadHeaderInformation);                    
-                } else if (supportCompareVerifyIdenticalContent 
+                    throw new ContentBlockedException(msg, icapHeaderInformation, threadHeaderInformation);
+                } else if (supportCompareVerifyIdenticalContent
                         && icapHeaderInformation.containsHeader(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT) && !icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).isEmpty()
                         && !Boolean.valueOf(icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT).get(0))) {
-                    String msg = "Not identical resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation.trim();
+                    String msg = "Not identical resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + "):\n" + threadInformation;
                     LOG.info(requestIdentifier + msg);
-                    throw new ContentBlockedException(msg, icapHeaderInformation);                    
+                    throw new ContentBlockedException(msg, icapHeaderInformation);
                 }
             }
 
             LOG.info(requestIdentifier + "Valid resource (" + sourceRequest + ", http-status: " + icapHeaderInformation.getStatus() + ").");
             return icapHeaderInformation;
+        } catch (ContentBlockedException cbe) {
+            if (icapSocket != null) {
+                icapSocket.markUnhealthy();
+            }
+            throw cbe;
         } catch (IOException eio) {
+            if (icapSocket != null) {
+                icapSocket.markUnhealthy();
+            }
             LOG.warn(requestIdentifier + "Could not access to ICAP server: " + eio.getMessage());
             throw eio;
         } finally {
+            if (icapSocket != null) {
+                icapSocket.close();
+            }
             if (resourceResponse != null && resourceResponse.exists()) {
-                resourceResponse.delete();
+                if (!resourceResponse.delete()) {
+                    resourceResponse.deleteOnExit();
+                    LOG.warn(requestIdentifier + "Could not delete temp file [" + resourceResponse + "], scheduled for deletion on exit.");
+                }
             }
         }
     }
 
     
     /**
+     * Create the Authorization header if set (RFC 3507 §7.1).
+     *
+     * @param requestInformation the ICAP request information
+     * @return the authorization header line or empty string
+     */
+    private String createAuthorizationHeader(final ICAPRequestInformation requestInformation) {
+        if (requestInformation.getAuthorization() == null || requestInformation.getAuthorization().isBlank()) {
+            return "";
+        }
+        return ICAPConstants.HEADER_KEY_AUTHORIZATION + ": " + sanitizeHeaderValue(requestInformation.getAuthorization()) + NEWLINE;
+    }
+
+
+    /**
      * Create custom headers
-     * 
+     *
      * @param requestInformation the ICAP request information
      * @return the customer headers
      */
@@ -250,10 +344,13 @@ public class ICAPClientImpl implements ICAPClient {
         
         final StringBuilder headers = new StringBuilder();
         for (Map.Entry<String, String> e : requestInformation.getCustomHeaders().entrySet()) {
-            final String key = e.getKey().trim();
-            final String value = e.getValue().trim();
-            
-            if (key.equalsIgnoreCase("Host") || key.equalsIgnoreCase("Connection") || key.equalsIgnoreCase("User-Agent") || key.equalsIgnoreCase("Preview") || key.equalsIgnoreCase("Encapsulated") || key.equalsIgnoreCase("Allow")) {
+            final String key = sanitizeHeaderValue(e.getKey().trim());
+            final String value = sanitizeHeaderValue(e.getValue().trim());
+
+            if (key.equalsIgnoreCase("Host") || key.equalsIgnoreCase("Connection") || key.equalsIgnoreCase("User-Agent")
+                    || key.equalsIgnoreCase("Preview") || key.equalsIgnoreCase("Encapsulated") || key.equalsIgnoreCase("Allow")
+                    || key.equalsIgnoreCase("Transfer-Encoding") || key.equalsIgnoreCase("Content-Length")
+                    || key.equalsIgnoreCase("Authorization")) {
                 LOG.warn("Invalid customer header [" + key + "], it's not allowed, ignore!");
             } else if (!value.isEmpty()) {
                 headers.append(key).append(": ").append(value).append(NEWLINE);
@@ -264,6 +361,55 @@ public class ICAPClientImpl implements ICAPClient {
     }
 
     
+    /**
+     * Sanitize a header value by removing CR and LF characters to prevent CRLF injection.
+     *
+     * @param value the value to sanitize
+     * @return the sanitized value
+     */
+    private String sanitizeHeaderValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\r", "").replace("\n", "");
+    }
+
+
+    /**
+     * Read a file with a size limit to avoid loading large files entirely into memory.
+     *
+     * @param file the file to read
+     * @param maxBytes the maximum number of bytes to read
+     * @return the file content as string
+     * @throws IOException In case of an I/O error
+     */
+    private String readFileLimited(File file, int maxBytes) throws IOException {
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            int size = (int) Math.min(file.length(), maxBytes);
+            byte[] buffer = new byte[size];
+            int read = fis.read(buffer);
+            if (read <= 0) {
+                return "";
+            }
+            return new String(buffer, 0, read, StandardCharsets.UTF_8);
+        }
+    }
+
+
+    /**
+     * Sanitize a value for safe log output by replacing CR and LF characters.
+     *
+     * @param value the value to sanitize
+     * @return the sanitized value
+     */
+    private String sanitizeLogValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\r", "\\r").replace("\n", "\\n");
+    }
+
+
     /**
      * Check if there are thread header information
      * 
@@ -297,9 +443,11 @@ public class ICAPClientImpl implements ICAPClient {
             for (int i = 0; i < icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED).size(); i++) {
                 String entry = icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_ENCAPSULATED).get(i);
                 String[] split = entry.split("=");
-                if (split.length > 1 && split[0].trim().equalsIgnoreCase(icapMode.getTag() + "-body")) {
+                // RFC 3507 §4.4.1: REQMOD response may contain req-body or res-body (error response)
+                String entryKey = split[0].trim();
+                if (split.length > 1 && (entryKey.equalsIgnoreCase(icapMode.getTag() + "-body") || entryKey.equalsIgnoreCase("res-body"))) {
                     try {
-                        threadHeaderInformation = new String(ICAPClientUtil.getInstance().readFile(resourceResponse), Charset.forName("UTF-8")).trim();
+                        threadHeaderInformation = readFileLimited(resourceResponse, 64 * 1024).trim();
                     } catch (IOException e) {
                         LOG.warn("Could not read resource response: " + e.getMessage(), e);
                     }
@@ -359,6 +507,7 @@ public class ICAPClientImpl implements ICAPClient {
      * @param resourceResponse the resource response
      * @return the ICAP header information
      * @throws IOException In case of an I/O error
+     * @throws UnknownIOException In case of an unknown or unrecognized ICAP status code
      * @throws ContentBlockedException In case the content is blocked
      */
     protected ICAPHeaderInformation processResource(final String requestIdentifier,
@@ -368,11 +517,13 @@ public class ICAPClientImpl implements ICAPClient {
                                                     final ICAPResource resource,
                                                     final File resourceResponse) throws IOException, ContentBlockedException {
 
-        // first part of header
+        // first part of header — encapsulated HTTP request (RFC 3507 §4.3: Via header for surrogate identification)
         String httpMethod = "GET";
+        String viaHeader = "Via: 1.1 " + sanitizeHeaderValue(requestInformation.getUserAgent()) + NEWLINE;
         String header = httpMethod + " /" + URLEncoder.encode(resource.getResourceName().trim(), StandardCharsets.UTF_8.name()) + " HTTP/1.1" + NEWLINE
-                        + "Host: " + requestInformation.getRequestSource() + NEWLINE + NEWLINE;
-        String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE 
+                        + "Host: " + sanitizeHeaderValue(requestInformation.getRequestSource()) + NEWLINE
+                        + viaHeader + NEWLINE;
+        String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE
                       + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
         String reqHdr = "";
         String bodyHdr = "";
@@ -388,10 +539,11 @@ public class ICAPClientImpl implements ICAPClient {
             previewSize = (int) resource.getResourceLength();
         }
 
-        String requestBuffer = "" + icapMode.name() + " icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE 
+        String requestBuffer = "" + icapMode.name() + " icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
-                             + "Connection:  close" + NEWLINE 
-                             + "User-Agent: " + requestInformation.getUserAgent() + NEWLINE 
+                             + "Connection: " + getConnectionMode() + NEWLINE
+                             + "User-Agent: " + sanitizeHeaderValue(requestInformation.getUserAgent()) + NEWLINE
+                             + createAuthorizationHeader(requestInformation)
                              + createCustomHeaders(requestInformation)
                              + supportAllow204(requestIdentifier, requestInformation.isAllow204())
                              + "Preview: " + previewSize + NEWLINE 
@@ -403,10 +555,15 @@ public class ICAPClientImpl implements ICAPClient {
         // sending preview or, if smaller than previewSize, the whole file.
         byte[] chunk = new byte[previewSize];
         
-        MessageDigest inputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
-        DigestInputStream inputstream = new DigestInputStream(resource.getResourceBody(), inputMessageDigest); 
+        MessageDigest inputMessageDigest = null;
+        InputStream inputstream;
+        if (supportCompareVerifyIdenticalContent) {
+            inputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
+            inputstream = new DigestInputStream(resource.getResourceBody(), inputMessageDigest);
+        } else {
+            inputstream = resource.getResourceBody();
+        }
         int readBytes = inputstream.read(chunk);
-        long totalReadBytes = readBytes;
         icapSocket.write(chunk, 0, readBytes);
         icapSocket.write(NEWLINE);
         if (resource.getResourceLength() <= previewSize) {
@@ -424,17 +581,17 @@ public class ICAPClientImpl implements ICAPClient {
                 case 100: break; // continue transfer
                 case 200: return icapHeaderInformation;
                 case 204: return icapHeaderInformation;
-                case 404: throw new IOException("404: ICAP Service not found");
-                default: throw new IOException("Server returned unknown status code:" + icapHeaderInformation.getStatus());
+                default: throwStatusCodeException(icapHeaderInformation);
             }
         }
 
         // sending remaining part of file
         if (resource.getResourceLength() > previewSize) {
+            long totalReadBytes = readBytes;
             byte[] buffer = new byte[bufferSize];
             readBytes = -1;
             while ((readBytes = inputstream.read(buffer)) != -1) {
-                totalReadBytes += readBytes;               
+                totalReadBytes += readBytes;
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(requestIdentifier + "Send next block of " + readBytes + " bytes (total sent: " + totalReadBytes + " bytes)...");
                 }
@@ -447,7 +604,11 @@ public class ICAPClientImpl implements ICAPClient {
             icapSocket.write(HTTP_END_SEPARATOR);
             icapSocket.flush();
         }
-        
+
+        if (supportCompareVerifyIdenticalContent && inputstream instanceof DigestInputStream) {
+            inputstream.close();
+        }
+
         ICAPHeaderInformation icapHeaderInformation = icapSocket.readICAPResponse(requestIdentifier, ICAP_END_SEPARATOR, bufferSize);
         if (icapHeaderInformation.getStatus() == 204) { // unmodified
             return icapHeaderInformation;
@@ -463,46 +624,107 @@ public class ICAPClientImpl implements ICAPClient {
                 return icapHeaderInformation;
             }
 
-            boolean couldProcessFullContent;
-            MessageDigest outputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
-            try (DigestOutputStream outputstream = new DigestOutputStream(new BufferedOutputStream(new FileOutputStream(resourceResponse)), outputMessageDigest)) {
-                //int parsedResult = (int) Long.parseLong(hex, 16);
-                couldProcessFullContent = (icapSocket.processContent(outputstream) >= 0);
-                outputstream.flush();
-                outputstream.close();
-            }
-            icapSocket.flush();
-            icapSocket.close();
-            
-            String inputMsg = ICAPClientUtil.getInstance().messageDigestToString(messageDigestAlgorithm, inputMessageDigest);
-            icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST, Arrays.asList(inputMsg));
-            String outputMsg = ICAPClientUtil.getInstance().messageDigestToString(messageDigestAlgorithm, outputMessageDigest);            
-            icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST, Arrays.asList(outputMsg));
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(requestIdentifier + "Resource length: " + resource.getResourceLength() + ", Response length: " + resourceResponse.length() + "?");
-            }
-            
-            if (supportCompareVerifyIdenticalContent) {
-                boolean identicalContent = couldProcessFullContent && resource.getResourceLength() == resourceResponse.length() && inputMsg.equals(outputMsg);
-                if (identicalContent) {
-                    icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT, Arrays.asList("" + identicalContent));
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug(requestIdentifier + "Input and output are equal -> allow, it's a valid response!");
-                    }
-                }
-            }
-
+            processResponseContent(requestIdentifier, icapSocket, icapHeaderInformation, inputMessageDigest, resource, resourceResponse);
             return icapHeaderInformation;
         }
         
-        throw new IOException("Unrecognized or no status code in response header: " + icapHeaderInformation.getStatus() + "!");
+        throwStatusCodeException(icapHeaderInformation);
+        return null; // unreachable, throwStatusCodeException always throws
+    }
+
+
+    /**
+     * Process the response content, compute digests and capture trailers.
+     *
+     * @param requestIdentifier the request identifier
+     * @param icapSocket the ICAP socket
+     * @param icapHeaderInformation the ICAP header information
+     * @param inputMessageDigest the input message digest (may be null)
+     * @param resource the ICAP resource
+     * @param resourceResponse the resource response file
+     * @throws IOException In case of an I/O error
+     */
+    private void processResponseContent(final String requestIdentifier, final ICAPSocket icapSocket,
+                                         final ICAPHeaderInformation icapHeaderInformation,
+                                         final MessageDigest inputMessageDigest,
+                                         final ICAPResource resource, final File resourceResponse) throws IOException {
+        boolean couldProcessFullContent;
+        MessageDigest outputMessageDigest = null;
+        if (supportCompareVerifyIdenticalContent) {
+            outputMessageDigest = ICAPClientUtil.getInstance().createMessageDigest(messageDigestAlgorithm);
+            try (DigestOutputStream outputstream = new DigestOutputStream(new BufferedOutputStream(new FileOutputStream(resourceResponse)), outputMessageDigest)) {
+                couldProcessFullContent = (icapSocket.processContent(outputstream) >= 0);
+                outputstream.flush();
+            }
+        } else {
+            try (BufferedOutputStream outputstream = new BufferedOutputStream(new FileOutputStream(resourceResponse))) {
+                couldProcessFullContent = (icapSocket.processContent(outputstream) >= 0);
+                outputstream.flush();
+            }
+        }
+        icapSocket.flush();
+
+        // Capture trailer headers if present (RFC 3507 §4.3.1)
+        if (icapSocket.getTrailers() != null) {
+            icapHeaderInformation.setTrailers(icapSocket.getTrailers());
+        }
+
+        if (supportCompareVerifyIdenticalContent) {
+            String inputMsg = ICAPClientUtil.getInstance().messageDigestToString(messageDigestAlgorithm, inputMessageDigest);
+            icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_REQUEST_MESSAGE_DIGEST, Arrays.asList(inputMsg));
+            String outputMsg = ICAPClientUtil.getInstance().messageDigestToString(messageDigestAlgorithm, outputMessageDigest);
+            icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_RESPONSE_MESSAGE_DIGEST, Arrays.asList(outputMsg));
+
+            boolean identicalContent = couldProcessFullContent && resource.getResourceLength() == resourceResponse.length() && inputMsg.equals(outputMsg);
+            if (identicalContent) {
+                icapHeaderInformation.getHeaders().put(ICAPConstants.HEADER_KEY_X_IDENTICAL_CONTENT, Arrays.asList("" + identicalContent));
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(requestIdentifier + "Input and output are equal -> allow, it's a valid response!");
+                }
+            }
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(requestIdentifier + "Resource length: " + resource.getResourceLength() + ", Response length: " + resourceResponse.length() + "?");
+        }
+    }
+
+
+    /**
+     * Throw an appropriate exception based on the ICAP status code (RFC 3507 §4.3.3).
+     * 4xx codes throw ICAPRequestException, 5xx and unknown codes throw UnknownIOException.
+     *
+     * @param icapHeaderInformation the ICAP header information
+     * @throws ICAPRequestException for 4xx client errors
+     * @throws UnknownIOException for 5xx server errors and unknown status codes
+     * @throws IOException in all cases (always throws)
+     */
+    private void throwStatusCodeException(ICAPHeaderInformation icapHeaderInformation) throws IOException {
+        int status = icapHeaderInformation.getStatus();
+        switch (status) {
+            // 4xx client errors
+            case 400: throw new ICAPRequestException(status, "Bad request", icapHeaderInformation);
+            case 404: throw new ICAPRequestException(status, "ICAP service not found", icapHeaderInformation);
+            case 405: throw new ICAPRequestException(status, "Method not allowed for service", icapHeaderInformation);
+            case 408: throw new ICAPRequestException(status, "Request timeout", icapHeaderInformation);
+            // 5xx server errors
+            case 500: throw new UnknownIOException(status, "Server error", icapHeaderInformation);
+            case 501: throw new UnknownIOException(status, "Method not implemented", icapHeaderInformation);
+            case 502: throw new UnknownIOException(status, "Bad gateway", icapHeaderInformation);
+            case 503: throw new UnknownIOException(status, "Service overloaded", icapHeaderInformation);
+            case 505: throw new UnknownIOException(status, "ICAP version not supported", icapHeaderInformation);
+            default:
+                if (status >= 400 && status < 500) {
+                    throw new ICAPRequestException(status, "Client error", icapHeaderInformation);
+                }
+                throw new UnknownIOException(status, "Unknown status code", icapHeaderInformation);
+        }
     }
 
 
     /**
      * Check allow 204 support
-     * 
+     *
      * @param requestIdentifier the equest identifier
      * @param isAllow204 the request information
      * @return the request string
@@ -536,6 +758,19 @@ public class ICAPClientImpl implements ICAPClient {
 
     
     /**
+     * Get the connection mode based on whether pooling is enabled.
+     *
+     * @return "keep-alive" if pooling is enabled, "close" otherwise
+     */
+    private String getConnectionMode() {
+        if (connectionManager.isPoolingEnabled()) {
+            return "keep-alive";
+        }
+        return "close";
+    }
+
+
+    /**
      * Create request identifier
      * 
      * @param mode the mode
@@ -543,13 +778,31 @@ public class ICAPClientImpl implements ICAPClient {
      * @return the request identifier
      */
     protected String createRequestIdentifier(final String mode, final String sourceRequest) {
-        return Integer.toHexString(("" + Instant.now() + "|" + mode + "|" + sourceRequest).hashCode()).toUpperCase() + " - ";
+        return Long.toHexString(java.util.UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE).toUpperCase() + " - ";
+    }
+
+
+    /**
+     * Get the effective request information. Returns the provided one if not null,
+     * otherwise falls back to the default, or creates a new instance.
+     *
+     * @param requestInformation the provided request information, may be null
+     * @return the effective request information, never null
+     */
+    private ICAPRequestInformation getEffectiveRequestInformation(final ICAPRequestInformation requestInformation) {
+        if (requestInformation != null) {
+            return requestInformation;
+        }
+        if (defaultRequestInformation != null) {
+            return defaultRequestInformation;
+        }
+        return new ICAPRequestInformation();
     }
 
 
     /**
      * Validate the request information
-     * 
+     *
      * @param requestInformation the request information
      * @throws IOException In case of an invalid request information
      */
@@ -557,5 +810,33 @@ public class ICAPClientImpl implements ICAPClient {
         if (requestInformation == null) {
             throw new IOException("Invalid request information!");
         }
+    }
+
+
+    /**
+     * Parse transfer extension list from an ICAP header (RFC 3507 §4.10.2).
+     * Values are comma-separated file extensions (e.g. "zip, tar, exe").
+     *
+     * @param icapHeaderInformation the ICAP header information
+     * @param headerKey the header key
+     * @return the list of extensions, or null if header not present
+     */
+    private List<String> parseTransferExtensions(ICAPHeaderInformation icapHeaderInformation, String headerKey) {
+        if (!icapHeaderInformation.containsHeader(headerKey)
+                || icapHeaderInformation.getHeaderValues(headerKey) == null
+                || icapHeaderInformation.getHeaderValues(headerKey).isEmpty()) {
+            return null;
+        }
+
+        List<String> extensions = new ArrayList<>();
+        for (String value : icapHeaderInformation.getHeaderValues(headerKey)) {
+            for (String ext : value.split(",")) {
+                String trimmed = ext.trim();
+                if (!trimmed.isEmpty()) {
+                    extensions.add(trimmed);
+                }
+            }
+        }
+        return extensions;
     }
 }

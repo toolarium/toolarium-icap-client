@@ -28,6 +28,7 @@ public final class ICAPClientFactory {
     private static final Logger LOG = LoggerFactory.getLogger(ICAPClientFactory.class);
     private Map<ICAPServiceInformation, ICAPRemoteServiceConfiguration> serviceCache;
     private ICAPConnectionManager connectionManager;
+    private volatile boolean maxConnectionsLogged;
     
     
     /**
@@ -35,7 +36,7 @@ public final class ICAPClientFactory {
      *
      * @author Patrick Meier
      */
-    private static class HOLDER {
+    private static final class HOLDER {
         static final ICAPClientFactory INSTANCE = new ICAPClientFactory();
     }
 
@@ -82,8 +83,16 @@ public final class ICAPClientFactory {
         
         this.connectionManager = connectionManager;
     }
-    
-    
+
+
+    /**
+     * Close all pooled connections and release resources.
+     */
+    public void closePool() {
+        connectionManager.closePool();
+    }
+
+
     /**
      * Get the ICAP client
      *
@@ -185,32 +194,86 @@ public final class ICAPClientFactory {
      */
     public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection, int cacheMaxAgeInSeconds) throws IOException {
         ICAPServiceInformation serviceInformation = new ICAPServiceInformation(hostName, servicePort, secureConnection, serviceName, cacheMaxAgeInSeconds);
-        
         ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(serviceInformation);
+        boolean isStale = isCacheStale(remoteServiceConfiguration, serviceInformation);
 
-        if (remoteServiceConfiguration == null 
-                || remoteServiceConfiguration.getTimestamp() == null 
-                || ((Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond()) > serviceInformation.getCacheMaxAgeInSeconds())) { 
-            try {
-                ICAPClientImpl clientImpl = new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, remoteServiceConfiguration);
-                remoteServiceConfiguration = clientImpl.options();
-                serviceCache.put(serviceInformation, remoteServiceConfiguration);
-                LOG.debug("Set remote service configuration cache: " + serviceInformation);
-            } catch (IOException e) {
-                LOG.debug("Could not get options from remote icap-server: " + e.getMessage(), e);
-                throw e;
+        if (isStale) {
+            synchronized (serviceCache) {
+                // double-check after acquiring lock
+                remoteServiceConfiguration = serviceCache.get(serviceInformation);
+                isStale = isCacheStale(remoteServiceConfiguration, serviceInformation);
+
+                if (isStale) {
+                    try {
+                        ICAPClientImpl clientImpl = new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, null);
+                        remoteServiceConfiguration = clientImpl.options();
+                        serviceCache.put(serviceInformation, remoteServiceConfiguration);
+
+                        // Apply server-advertised Max-Connections to pool (RFC 3507 §4.10)
+                        if (remoteServiceConfiguration.getMaxConnections() > 0 && connectionManager.isPoolingEnabled()) {
+                            int serverMax = remoteServiceConfiguration.getMaxConnections();
+                            int currentMax = connectionManager.getMaxPoolConnectionsPerHost();
+                            if (currentMax > serverMax) {
+                                if (!maxConnectionsLogged) {
+                                    maxConnectionsLogged = true;
+                                    LOG.warn("Pool setting (" + currentMax + ") exceeds server Max-Connections (" + serverMax + "), reducing to server limit.");
+                                }
+                                connectionManager.setMaxPoolConnectionsPerHost(serverMax);
+                            } else if (currentMax < serverMax) {
+                                if (!maxConnectionsLogged) {
+                                    maxConnectionsLogged = true;
+                                    LOG.info("Server allows Max-Connections: " + serverMax + ", keeping user-defined pool setting: " + currentMax + ".");
+                                }
+                            }
+                        }
+
+                        LOG.debug("Set remote service configuration cache: " + serviceInformation);
+                    } catch (IOException e) {
+                        LOG.debug("Could not get options from remote icap-server: " + e.getMessage(), e);
+                        throw e;
+                    }
+                }
             }
         } else {
-            String logCacheDuration = "";
-            Long diff = null;
-            if (remoteServiceConfiguration.getTimestamp() != null) {
-                diff = serviceInformation.getCacheMaxAgeInSeconds() + (Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond());
-                logCacheDuration = "(valid for " + diff + " seconds)";
+            if (LOG.isDebugEnabled()) {
+                long effectiveTTL = getEffectiveTTL(remoteServiceConfiguration, serviceInformation);
+                long diff = effectiveTTL - (Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond());
+                LOG.debug("Found remote service configuration in cache (valid for " + diff + " seconds): " + serviceInformation);
             }
-            
-            LOG.debug("Found remote service configuration in cache " + logCacheDuration + ": " + serviceInformation);
         }
-        
+
         return new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, remoteServiceConfiguration);
+    }
+
+
+    /**
+     * Check if the cached configuration is stale.
+     *
+     * @param config the cached remote service configuration
+     * @param serviceInformation the service information
+     * @return true if the cache is stale and needs refresh
+     */
+    private boolean isCacheStale(ICAPRemoteServiceConfiguration config, ICAPServiceInformation serviceInformation) {
+        if (config == null || config.getTimestamp() == null) {
+            return true;
+        }
+        long effectiveTTL = getEffectiveTTL(config, serviceInformation);
+        return (Instant.now().getEpochSecond() - config.getTimestamp().getEpochSecond()) > effectiveTTL;
+    }
+
+
+    /**
+     * Get the effective TTL in seconds. Uses the server-advertised Options-TTL (RFC 3507 §4.10) if available,
+     * otherwise falls back to the client-configured cacheMaxAgeInSeconds.
+     *
+     * @param config the remote service configuration
+     * @param serviceInformation the service information
+     * @return the effective TTL in seconds
+     */
+    private long getEffectiveTTL(ICAPRemoteServiceConfiguration config, ICAPServiceInformation serviceInformation) {
+        if (config.getOptionsTTL() > 0) {
+            return config.getOptionsTTL();
+        }
+        return serviceInformation.getCacheMaxAgeInSeconds();
     }
 }

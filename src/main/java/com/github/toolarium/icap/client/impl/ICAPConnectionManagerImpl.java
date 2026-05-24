@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -20,8 +21,29 @@ import javax.net.ssl.SSLSocketFactory;
  * @author patrick
  */
 public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
-    private Integer defaultSocketConnectionTimeout;
-    private Integer defaultSocketReadTimeout;
+    private static final int DEFAULT_CONNECTION_TIMEOUT = 30000;
+    private static final int DEFAULT_READ_TIMEOUT = 60000;
+    private Integer defaultSocketConnectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
+    private Integer defaultSocketReadTimeout = DEFAULT_READ_TIMEOUT;
+    private final ICAPConnectionPool connectionPool;
+
+
+    /**
+     * Constructor for ICAPConnectionManagerImpl
+     */
+    public ICAPConnectionManagerImpl() {
+        this.connectionPool = new ICAPConnectionPool();
+    }
+
+
+    /**
+     * Get the connection pool
+     *
+     * @return the connection pool
+     */
+    public ICAPConnectionPool getConnectionPool() {
+        return connectionPool;
+    }
 
 
     /**
@@ -29,11 +51,71 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     @Override
     public Socket createSocket(String hostname, int port, boolean secureConnection, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
+        Socket pooled = connectionPool.acquire(hostname, port, secureConnection);
+        if (pooled != null) {
+            pooled.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
+            return pooled;
+        }
+
         if (!secureConnection) {
             return createUnsecureSocket(hostname, port, maxConnectionTimeout, maxReadTimeout);
         }
 
         return createSecureSocket(hostname, port, maxConnectionTimeout, maxReadTimeout);
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#getMaxPoolConnectionsPerHost()
+     */
+    @Override
+    public int getMaxPoolConnectionsPerHost() {
+        return connectionPool.getMaxConnectionsPerHost();
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setMaxPoolConnectionsPerHost(int)
+     */
+    @Override
+    public void setMaxPoolConnectionsPerHost(int maxConnectionsPerHost) {
+        connectionPool.setMaxConnectionsPerHost(maxConnectionsPerHost);
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#setPoolIdleTimeout(long)
+     */
+    @Override
+    public void setPoolIdleTimeout(long idleTimeoutMs) {
+        connectionPool.setIdleTimeoutMs(idleTimeoutMs);
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#isPoolingEnabled()
+     */
+    @Override
+    public boolean isPoolingEnabled() {
+        return connectionPool.getMaxConnectionsPerHost() > 0;
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#releaseSocket(java.lang.String, int, boolean, java.net.Socket)
+     */
+    @Override
+    public void releaseSocket(String hostname, int port, boolean secureConnection, Socket socket) {
+        connectionPool.release(hostname, port, secureConnection, socket);
+    }
+
+
+    /**
+     * @see com.github.toolarium.icap.client.ICAPConnectionManager#closePool()
+     */
+    @Override
+    public void closePool() {
+        connectionPool.close();
     }
 
 
@@ -86,10 +168,17 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws IOException In case of an I/O error
      */
     protected Socket createSecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
-        SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-        Socket sslSocket = (SSLSocket)factory.createSocket();
+        SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+        SSLSocket sslSocket = (SSLSocket)factory.createSocket();
+
+        // enable hostname verification (same as HTTPS)
+        SSLParameters sslParams = sslSocket.getSSLParameters();
+        sslParams.setEndpointIdentificationAlgorithm("HTTPS");
+        sslSocket.setSSLParameters(sslParams);
+
         sslSocket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
-        sslSocket.connect(new InetSocketAddress(hostname,port), getSocketConnectionTimeout(maxConnectionTimeout));
+        sslSocket.connect(new InetSocketAddress(hostname, port), getSocketConnectionTimeout(maxConnectionTimeout));
+        sslSocket.startHandshake();
         return sslSocket;
     }
 

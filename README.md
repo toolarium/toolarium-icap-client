@@ -1,10 +1,67 @@
 [![License](https://img.shields.io/github/license/toolarium/toolarium-icap-client)](https://github.com/toolarium/toolarium-icap-client/blob/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.3.9)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.3.9/jar)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.4.0)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.4.0/jar)
 [![javadoc](https://javadoc.io/badge2/com.github.toolarium/toolarium-icap-client/javadoc.svg)](https://javadoc.io/doc/com.github.toolarium/toolarium-icap-client)
 
 # toolarium-icap-client
 
-Implements the an ICAP client in java compliant with [RFC 3507](https://www.ietf.org/rfc/rfc3507.txt)
+A full-featured ICAP client library in Java with complete [RFC 3507](https://www.rfc-editor.org/rfc/rfc3507.txt) coverage. Designed for antivirus scanning integration with support for multiple vendors including ClamAV, Sophos, Kaspersky, Trend Micro, ESET, McAfee, F-Secure and C-ICAP.
+
+## RFC 3507 Compliance
+
+This library fully implements the ICAP protocol as specified in [RFC 3507](https://www.rfc-editor.org/rfc/rfc3507.txt):
+
+### ICAP Methods (RFC 3507 §4.8 - §4.10)
+- **REQMOD** - Request modification mode for adapting HTTP requests before forwarding
+- **RESPMOD** - Response modification mode for post-processing origin server responses
+- **OPTIONS** - Query server capabilities, supported methods, preview size and service configuration
+
+### Message Format and Headers (RFC 3507 §4.3 - §4.4)
+- **ICAP request line** - Absolute URI format `icap://host:port/service ICAP/1.0`
+- **Host header** - Included in every ICAP request
+- **Encapsulated header** - Correct byte offsets for all REQMOD and RESPMOD forms, including both `req-body` and `res-body` response variants
+- **Via header** - Added to encapsulated HTTP requests for surrogate identification
+- **Hop-by-hop exclusion** - Connection, Keep-Alive and other hop-by-hop headers are not encapsulated
+- **Chunked transfer encoding** - All encapsulated bodies use chunked encoding; headers are not chunked
+- **Trailer headers** - Parsed after the zero-length terminating chunk and accessible via `ICAPHeaderInformation.getTrailers()`
+
+### Preview Mode (RFC 3507 §4.5)
+- Default preview size of 4096 bytes (RFC recommends clients SHOULD support at least 4096)
+- Server-advertised preview size is used when available
+- `0; ieof` chunk extension for end-of-preview signaling
+- **100 Continue** handling: waits after preview, sends remaining data on 100
+
+### Response Handling (RFC 3507 §4.6 - §4.7)
+- **204 No Content** - Sends `Allow: 204` when server supports it; auto-selects or manually configurable
+- **ISTag** - Parsed from every ICAP response for service state identification
+- **Status codes** - All RFC-defined status codes mapped to specific exceptions:
+  - 4xx client errors (400, 404, 405, 408) throw `ICAPRequestException`
+  - 5xx server errors (500, 501, 502, 503, 505) throw `UnknownIOException`
+  - Both provide `getStatusCode()` and `getICAPHeaderInformation()` for diagnostics
+
+### OPTIONS Response Fields (RFC 3507 §4.10)
+- **Options-TTL** - Parsed and used as cache TTL, with fallback to client-configured default
+- **Max-Connections** - Applied to connection pool; respects user-defined lower limits
+- **Service-ID** - Parsed and exposed via `ICAPRemoteServiceConfiguration`
+- **Transfer-Preview / Transfer-Ignore / Transfer-Complete** - File extension lists parsed and accessible
+
+### Connection Management (RFC 3507 §4.1)
+- **Persistent connections** - Connection pooling with keep-alive support (opt-in)
+- **Connection: close** - Explicit detection of both `close` and `keep-alive` from server responses
+- **Default port 1344** - Used when not specified in the ICAP URI
+
+### Authentication (RFC 3507 §7.1)
+- **Authorization header** - First-class support via `ICAPRequestInformation.setAuthorization()`
+- **Default request information** - Configure authorization once for all requests via `ICAPClient.setDefaultRequestInformation()`
+
+### Security (RFC 3507 §7.2)
+- **ICAPS (TLS)** - Secure connections via `icaps://` scheme with hostname verification
+- **Upgrade header** - Exposed as read-only constant; `icaps://` is the preferred TLS approach
+
+### Caching (RFC 3507 §5)
+- **Cache-Control, Expires, Pragma** - Exposed as read-only constants for server policy inspection via `ICAPHeaderInformation.getHeaders()`
+
+### Vendor Compatibility
+Tested with structured threat headers from: ClamAV, Sophos, Kaspersky, Trend Micro, ESET, McAfee, F-Secure and C-ICAP (X-Infection-Found, X-Virus-ID, X-Blocked, X-Virus-Name, X-Block-Reason).
 
 
 ## Built With
@@ -20,7 +77,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ```groovy
 dependencies {
-    implementation "com.github.toolarium:toolarium-icap-client:1.3.9"
+    implementation "com.github.toolarium:toolarium-icap-client:1.4.0"
 }
 ```
 
@@ -30,7 +87,7 @@ dependencies {
 <dependency>
     <groupId>com.github.toolarium</groupId>
     <artifactId>toolarium-icap-client</artifactId>
-    <version>1.3.9</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
@@ -54,21 +111,36 @@ try {
     
     // If no exception is thrown the resource can be used and is valid. 
 
-} catch (IOException ioe) {  // I/O error
+} catch (ContentBlockedException e) { // !!! The resource has to be blocked !!!
 
-    LOG.warn("Resource could not be accessed: " + ioe.getMessage(), ioe);
-
-} catch (ContentBlockedException e) { // !!! The resource has to be blocked !!! 
-    
     // The e.getMessage() gives technical the proper information. It's already logged by the library.
 
     // The ICAP header contains structured information about virus.
     ICAPHeaderInformation icapHeaderInformation = e.getICAPHeaderInformation();
     icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_VIOLATIONS_FOUND);
     icapHeaderInformation.getHeaderValues(ICAPConstants.HEADER_KEY_X_INFECTION_FOUND);
-    
-    // The e.getContent() contains the returned error information from the ICAP-Server. 
+
+    // The e.getContent() contains the returned error information from the ICAP-Server.
     // It can be ignored as long as the resource is blocked; otherwise it gives a well structured response.
+
+} catch (ICAPRequestException e) { // 4xx client error (RFC 3507 §4.3.3)
+
+    // The request was rejected by the ICAP server (e.g. bad request, method not allowed, timeout).
+    int statusCode = e.getStatusCode(); // e.g. 400, 404, 405, 408
+    ICAPHeaderInformation icapHeaderInformation = e.getICAPHeaderInformation();
+    LOG.warn("ICAP request error: " + e.getMessage());
+
+} catch (UnknownIOException uioe) { // 5xx server error (RFC 3507 §4.3.3)
+
+    // The ICAP server encountered an error (e.g. server error, service overloaded).
+    int statusCode = uioe.getStatusCode(); // e.g. 500, 501, 502, 503, 505
+    ICAPHeaderInformation icapHeaderInformation = uioe.getICAPHeaderInformation();
+    LOG.warn("ICAP server error: " + uioe.getMessage() + ", headers: " + icapHeaderInformation.getHeaders());
+
+} catch (IOException ioe) {  // I/O error
+
+    LOG.warn("Resource could not be accessed: " + ioe.getMessage(), ioe);
+
 }
 ```
 
@@ -91,6 +163,77 @@ DA054425 - Threat found in resource (username: user, source: file, resource: tes
 - X-Resource-Identical-Content: [false]
 ```
 
+## Authentication
+
+ICAP authentication (RFC 3507 §7.1) is supported via the `Authorization` header. It can be configured once per client using default request information, or per-request:
+
+```java
+// Configure once for all requests
+ICAPRequestInformation defaults = new ICAPRequestInformation();
+defaults.setAuthorization("Basic dXNlcjpwYXNz");
+
+ICAPClient client = ICAPClientFactory.getInstance().getICAPClient("icap://localhost:1344/srv_clamav");
+client.setDefaultRequestInformation(defaults);
+
+// all subsequent calls use the authorization automatically
+client.validateResource(ICAPMode.REQMOD, resource);
+
+// or override per-request
+ICAPRequestInformation perRequest = new ICAPRequestInformation();
+perRequest.setAuthorization("Bearer mytoken123");
+client.validateResource(ICAPMode.REQMOD, perRequest, resource);
+```
+
+## OPTIONS response fields
+
+The library parses the following server-advertised fields from the OPTIONS response (RFC 3507 §4.10):
+
+| Field | Description |
+|---|---|
+| `Options-TTL` | Cache TTL in seconds. Used instead of the client-configured default when available. |
+| `Max-Connections` | Maximum parallel connections. Applied to the connection pool automatically. |
+| `Service-ID` | Service identifier. |
+| `Transfer-Preview` | File extensions for which preview is useful. |
+| `Transfer-Ignore` | File extensions to transfer without preview. |
+| `Transfer-Complete` | File extensions to always transfer completely. |
+
+These values are accessible via `ICAPRemoteServiceConfiguration` after calling `options()`.
+
+### Read-only headers
+
+The following RFC 3507 headers are exposed as constants in `ICAPConstants` for inspection via `ICAPHeaderInformation.getHeaders()`, but the library does not act on them:
+
+| Header | RFC Section | Description |
+|---|---|---|
+| `Upgrade` | §7.2 | In-band TLS negotiation. Use `icaps://` for TLS instead. |
+| `Cache-Control` | §5 | Server-advertised caching policy for ICAP responses. |
+| `Expires` | §5 | Expiration time for cached ICAP responses. |
+| `Pragma` | §5 | Caching directives (e.g. `no-cache`). |
+
+```java
+// Example: inspect server caching policy
+ICAPHeaderInformation info = client.validateResource(ICAPMode.REQMOD, resource);
+List<String> cacheControl = info.getHeaderValues(ICAPConstants.HEADER_KEY_CACHE_CONTROL);
+```
+
+
+## Connection pooling
+By default, each request creates a new TCP connection. For high-throughput scanning, connection pooling can be enabled to reuse sockets:
+
+```java
+// Enable pooling with up to 5 idle connections per host
+ICAPClientFactory.getInstance().getICAPConnectionManager().setMaxPoolConnectionsPerHost(5);
+
+// Optionally set idle timeout (default: 60s)
+ICAPClientFactory.getInstance().getICAPConnectionManager().setPoolIdleTimeout(30000);
+
+// Shut down the pool when done
+ICAPClientFactory.getInstance().closePool();
+```
+
+> **Note:** Connection pooling requires the ICAP server to support keep-alive connections. Pooling is disabled by default (pool size 0). Sockets are only reused when the server responds with `Connection: keep-alive`.
+
+
 ## Secure connection
 To support secured connection you can either pass by the getICAPClient a icaps:// url or enable the secure connection by
 
@@ -108,6 +251,10 @@ The simplest way is to extend the default implementation ``com.github.toolarium.
 ```
 # start service - after start you can use the java library
 docker run --rm --name icap-server -p 1344:1344 toolarium/toolarium-icap-calmav-docker:0.0.1
+
+or by cb-container:
+
+cb-container --start toolarium/toolarium-icap-calmav-docker -p 1344
 
 # optional you can login into the container
 docker exec -it icap-server /bin/bash

@@ -29,6 +29,7 @@ public class ICAPRequestInformation implements Serializable {
     private String username;
     private String requestSource;
     private Boolean allow204;
+    private String authorization;
     private Integer maxConnectionTimeout;
     private Integer maxReadTimeout;
     private Map<String, String> customHeaders;
@@ -185,6 +186,29 @@ public class ICAPRequestInformation implements Serializable {
 
     
     /**
+     * Get the authorization header value (RFC 3507 §7.1).
+     *
+     * @return the authorization header value, or null if not set
+     */
+    public String getAuthorization() {
+        return authorization;
+    }
+
+
+    /**
+     * Set the authorization header value for ICAP hop-by-hop authentication (RFC 3507 §7.1).
+     * Example: "Basic dXNlcjpwYXNz" or "Bearer token123".
+     *
+     * @param authorization the authorization header value
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation setAuthorization(String authorization) {
+        this.authorization = authorization;
+        return this;
+    }
+
+
+    /**
      * Get the max connection timeout in milliseconds. By default there is no timeout set (null). 
      * Any positive value will be set to the socket connection of the ICAP connection.
      * A timeout of zero is interpreted as an infinite timeout. The connection will then block 
@@ -284,7 +308,7 @@ public class ICAPRequestInformation implements Serializable {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(allow204, apiVersion, customHeaders, maxConnectionTimeout, maxReadTimeout, requestSource, userAgent, username);
+        return Objects.hash(allow204, apiVersion, authorization, customHeaders, maxConnectionTimeout, maxReadTimeout, requestSource, userAgent, username);
     }
 
 
@@ -307,6 +331,7 @@ public class ICAPRequestInformation implements Serializable {
         
         ICAPRequestInformation other = (ICAPRequestInformation) obj;
         return Objects.equals(allow204, other.allow204) && Objects.equals(apiVersion, other.apiVersion)
+                && Objects.equals(authorization, other.authorization)
                 && Objects.equals(customHeaders, other.customHeaders)
                 && Objects.equals(maxConnectionTimeout, other.maxConnectionTimeout)
                 && Objects.equals(maxReadTimeout, other.maxReadTimeout)
@@ -321,12 +346,26 @@ public class ICAPRequestInformation implements Serializable {
     @Override
     public String toString() {
         return "ICAPRequestInformation [userAgent=" + userAgent + ", apiVersion=" + apiVersion + ", username="
-                + username + ", requestSource=" + requestSource + ", allow204=" + allow204 + ", maxConnectionTimeout="
-                + maxConnectionTimeout + ", maxReadTimeout=" + maxReadTimeout + ", customHeaders=" + customHeaders
-                + "]";
+                + username + ", requestSource=" + requestSource + ", allow204=" + allow204
+                + ", authorization=" + maskAuthorization()
+                + ", maxConnectionTimeout=" + maxConnectionTimeout + ", maxReadTimeout=" + maxReadTimeout
+                + ", customHeaders=" + customHeaders + "]";
     }
 
     
+    /**
+     * Mask the authorization value for safe log output.
+     *
+     * @return masked value
+     */
+    private String maskAuthorization() {
+        if (authorization != null) {
+            return "***";
+        }
+        return "null";
+    }
+
+
     /**
      * Prepare the source request
      *

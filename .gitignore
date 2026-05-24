@@ -67,3 +67,8 @@ nb-configuration.xml
 # vi swap files
 *.swp
 *.swo
+
+# Disallowed checked-in files (auto-cleaned by common-gradle-build)
+.classpath
+.project
+.settings

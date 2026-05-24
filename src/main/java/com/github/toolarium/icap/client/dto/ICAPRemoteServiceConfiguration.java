@@ -12,11 +12,11 @@ import java.util.Map;
 
 /**
  * Defines the remote service configuration
- *  
+ *
  * @author patrick
  */
 public interface ICAPRemoteServiceConfiguration {
-    
+
     /**
      * Get the server preview size
      *
@@ -24,7 +24,7 @@ public interface ICAPRemoteServiceConfiguration {
      */
     int getServerPreviewSize();
 
-    
+
     /**
      * Define if server allow 204
      *
@@ -32,7 +32,7 @@ public interface ICAPRemoteServiceConfiguration {
      */
     boolean isServerAllow204();
 
-    
+
     /**
      * Get option methods
      *
@@ -40,15 +40,65 @@ public interface ICAPRemoteServiceConfiguration {
      */
     ICAPMode[] getOptionMethods();
 
-    
+
     /**
      * Get the timestamp of the request
      *
      * @return the timestamp of the request
      */
     Instant getTimestamp();
-    
-    
+
+
+    /**
+     * Get the Options-TTL in seconds as advertised by the server (RFC 3507 §4.10).
+     * Returns -1 if the server did not advertise an Options-TTL.
+     *
+     * @return the options TTL in seconds, or -1 if not specified
+     */
+    int getOptionsTTL();
+
+
+    /**
+     * Get the max connections as advertised by the server (RFC 3507 §4.10).
+     * Returns -1 if the server did not advertise Max-Connections.
+     *
+     * @return the max connections, or -1 if not specified
+     */
+    int getMaxConnections();
+
+
+    /**
+     * Get the Service-ID as advertised by the server (RFC 3507 §4.10).
+     *
+     * @return the service id, or null if not specified
+     */
+    String getServiceId();
+
+
+    /**
+     * Get the Transfer-Preview file extensions (RFC 3507 §4.10.2).
+     *
+     * @return the transfer preview extensions, or null if not specified
+     */
+    List<String> getTransferPreview();
+
+
+    /**
+     * Get the Transfer-Ignore file extensions (RFC 3507 §4.10.2).
+     *
+     * @return the transfer ignore extensions, or null if not specified
+     */
+    List<String> getTransferIgnore();
+
+
+    /**
+     * Get the Transfer-Complete file extensions (RFC 3507 §4.10.2).
+     *
+     * @return the transfer complete extensions, or null if not specified
+     */
+    List<String> getTransferComplete();
+
+
     /**
      * Get the header entries
      *

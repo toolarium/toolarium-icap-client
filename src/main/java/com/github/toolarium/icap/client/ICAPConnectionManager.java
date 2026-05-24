@@ -47,4 +47,54 @@ public interface ICAPConnectionManager {
      * @param defaultSocketReadTimeout the default socket read timeout in milliseconds or null.
      */
     void setDefaultSocketReadTimeout(Integer defaultSocketReadTimeout);
+
+
+    /**
+     * Get the maximum number of idle connections per host in the pool.
+     *
+     * @return the maximum number of idle connections per host
+     */
+    int getMaxPoolConnectionsPerHost();
+
+
+    /**
+     * Set the maximum number of idle connections per host in the pool. A value of 0 disables pooling (default).
+     *
+     * @param maxConnectionsPerHost the maximum number of idle connections per host
+     */
+    void setMaxPoolConnectionsPerHost(int maxConnectionsPerHost);
+
+
+    /**
+     * Set the idle timeout in milliseconds for pooled connections. Connections idle longer than this are evicted.
+     *
+     * @param idleTimeoutMs the idle timeout in milliseconds
+     */
+    void setPoolIdleTimeout(long idleTimeoutMs);
+
+
+    /**
+     * Check if connection pooling is enabled.
+     *
+     * @return true if pooling is enabled (maxConnectionsPerHost &gt; 0)
+     */
+    boolean isPoolingEnabled();
+
+
+    /**
+     * Release a socket back to the connection pool for reuse.
+     * If pooling is not supported or the socket is invalid, it will be closed.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     * @param socket the socket to release
+     */
+    void releaseSocket(String hostname, int port, boolean secureConnection, Socket socket);
+
+
+    /**
+     * Close all pooled connections and release resources.
+     */
+    void closePool();
 }
