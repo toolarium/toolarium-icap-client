@@ -27,7 +27,7 @@ public final class ICAPClientFactory {
     private static final int DEFAULT_MAX_CACHE_AGE = 12 * 60 * 60;
     private static final Logger LOG = LoggerFactory.getLogger(ICAPClientFactory.class);
     private Map<ICAPServiceInformation, ICAPRemoteServiceConfiguration> serviceCache;
-    private ICAPConnectionManager connectionManager;
+    private volatile ICAPConnectionManager connectionManager;
     private volatile boolean maxConnectionsLogged;
     
     

@@ -23,8 +23,8 @@ import javax.net.ssl.SSLSocketFactory;
 public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
     private static final int DEFAULT_CONNECTION_TIMEOUT = 30000;
     private static final int DEFAULT_READ_TIMEOUT = 60000;
-    private Integer defaultSocketConnectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
-    private Integer defaultSocketReadTimeout = DEFAULT_READ_TIMEOUT;
+    private volatile Integer defaultSocketConnectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
+    private volatile Integer defaultSocketReadTimeout = DEFAULT_READ_TIMEOUT;
     private final ICAPConnectionPool connectionPool;
 
 
@@ -191,8 +191,10 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     private int getSocketConnectionTimeout(Integer maxConnectionTimeout) {
         int socketTimeout = 0;
-        if (defaultSocketConnectionTimeout != null && defaultSocketConnectionTimeout.intValue() >= 0) {
-            socketTimeout = defaultSocketConnectionTimeout.intValue();
+        // Capture volatile field once to avoid a concurrent setDefaultSocketConnectionTimeout(null) causing a NullPointerException between the null-check and the intValue() call.
+        Integer defaultTimeout = defaultSocketConnectionTimeout;
+        if (defaultTimeout != null && defaultTimeout.intValue() >= 0) {
+            socketTimeout = defaultTimeout.intValue();
         }
 
         if (maxConnectionTimeout != null && maxConnectionTimeout.intValue() >= 0) {
@@ -210,8 +212,10 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      */
     private int getReadSocketTimeout(Integer maxReadTimeout) {
         int socketReadTimeout = 0;
-        if (defaultSocketReadTimeout != null && defaultSocketReadTimeout.intValue() >= 0) {
-            socketReadTimeout = defaultSocketReadTimeout.intValue();
+        // Capture volatile field once to avoid a concurrent setDefaultSocketReadTimeout(null) causing a NullPointerException between the null-check and the intValue() call.
+        Integer defaultTimeout = defaultSocketReadTimeout;
+        if (defaultTimeout != null && defaultTimeout.intValue() >= 0) {
+            socketReadTimeout = defaultTimeout.intValue();
         }
 
         if (maxReadTimeout != null && maxReadTimeout.intValue() >= 0) {

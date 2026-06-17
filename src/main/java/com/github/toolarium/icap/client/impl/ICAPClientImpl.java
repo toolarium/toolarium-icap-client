@@ -51,11 +51,11 @@ public class ICAPClientImpl implements ICAPClient {
 
     private ICAPConnectionManager connectionManager;
     private ICAPServiceInformation serviceInformation;
-    private ICAPRemoteServiceConfiguration remoteServiceConfiguration;
+    private volatile ICAPRemoteServiceConfiguration remoteServiceConfiguration;
     private int bufferSize = 8192;
     private String messageDigestAlgorithm = "SHA-256";
-    private boolean supportCompareVerifyIdenticalContent;
-    private ICAPRequestInformation defaultRequestInformation;
+    private volatile boolean supportCompareVerifyIdenticalContent;
+    private volatile ICAPRequestInformation defaultRequestInformation;
 
 
     /**
@@ -246,13 +246,15 @@ public class ICAPClientImpl implements ICAPClient {
         final String requestIdentifier = createRequestIdentifier(icapMode.name(), sourceRequest);
         LOG.info(requestIdentifier + "Validate resource (" + sourceRequest + ")");
 
-        // validate the service availability
-        if (remoteServiceConfiguration == null) {
-            options(requestInformation);
+        // validate the service availability — capture a local reference to avoid TOCTOU races
+        // on the volatile field if a concurrent options() call nulls and re-sets it.
+        ICAPRemoteServiceConfiguration currentConfig = remoteServiceConfiguration;
+        if (currentConfig == null) {
+            currentConfig = options(requestInformation);
         }
 
         // prepare preview size
-        int previewSize = remoteServiceConfiguration.getServerPreviewSize();
+        int previewSize = currentConfig.getServerPreviewSize();
         if (resource.getResourceLength() < previewSize) {
             previewSize = (int)resource.getResourceLength();
         }
@@ -523,8 +525,6 @@ public class ICAPClientImpl implements ICAPClient {
         String header = httpMethod + " /" + URLEncoder.encode(resource.getResourceName().trim(), StandardCharsets.UTF_8.name()) + " HTTP/1.1" + NEWLINE
                         + "Host: " + sanitizeHeaderValue(requestInformation.getRequestSource()) + NEWLINE
                         + viaHeader + NEWLINE;
-        String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE
-                      + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
         String reqHdr = "";
         String bodyHdr = "";
         if (ICAPMode.RESPMOD.equals(icapMode)) {
@@ -534,10 +534,18 @@ public class ICAPClientImpl implements ICAPClient {
             reqHdr = "req-hdr=0, ";
         }
 
-        int previewSize = remoteServiceConfiguration.getServerPreviewSize();
+        // Capture a local snapshot of the volatile field so every read in this method
+        // sees a consistent non-null value even if a concurrent options() refresh runs.
+        ICAPRemoteServiceConfiguration currentConfig = remoteServiceConfiguration;
+        if (currentConfig == null) {
+            throw new IOException("Remote service configuration is not available");
+        }
+        int previewSize = currentConfig.getServerPreviewSize();
         if (resource.getResourceLength() < previewSize) {
             previewSize = (int) resource.getResourceLength();
         }
+        String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE
+                      + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
 
         String requestBuffer = "" + icapMode.name() + " icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
@@ -730,10 +738,13 @@ public class ICAPClientImpl implements ICAPClient {
      * @return the request string
      */
     protected String supportAllow204(final String requestIdentifier, final Boolean isAllow204) {
-        
-        String serverReason = "suppported by the icap-server";    
-        if (!remoteServiceConfiguration.isServerAllow204()) {
-            serverReason = "not " + serverReason;    
+        // Capture once to avoid reading the volatile field multiple times inconsistently.
+        ICAPRemoteServiceConfiguration currentConfig = remoteServiceConfiguration;
+        boolean serverAllow204 = currentConfig != null && currentConfig.isServerAllow204();
+
+        String serverReason = "suppported by the icap-server";
+        if (!serverAllow204) {
+            serverReason = "not " + serverReason;
         }
 
         String requestReason = "requested";
@@ -745,7 +756,7 @@ public class ICAPClientImpl implements ICAPClient {
 
         String selectAllow204Reason = "Not use allow 204";
         String allow204Request = "";
-        if (remoteServiceConfiguration.isServerAllow204() && (isAllow204 == null || isAllow204.booleanValue())) {
+        if (serverAllow204 && (isAllow204 == null || isAllow204.booleanValue())) {
             selectAllow204Reason = "Use allow 204";
             allow204Request = "Allow: 204" + NEWLINE;
         }

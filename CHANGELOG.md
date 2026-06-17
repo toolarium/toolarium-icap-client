@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [ 1.4.1 ] - 2026-05-24
+## [ 1.4.1 ] - 2026-06-17
+### Fixed
+- Fixed data race on `remoteServiceConfiguration` field in `ICAPClientImpl`: declared `volatile` and replaced check-then-act pattern with local variable capture using `options()` return value to prevent TOCTOU and NPE under concurrent access.
+- Fixed data races on `supportCompareVerifyIdenticalContent` and `defaultRequestInformation` fields in `ICAPClientImpl`: declared `volatile` to ensure cross-thread visibility of post-construction writes via public setters.
+- Fixed data races on `maxConnectionsPerHost` and `idleTimeoutMs` in `ICAPConnectionPool`: declared `volatile` to ensure writes from `ICAPClientFactory`'s synchronized block are visible to threads calling `acquire()` and `release()` without the same monitor.
+- Fixed missing `volatile` on `defaultSocketConnectionTimeout` and `defaultSocketReadTimeout` in `ICAPConnectionManagerImpl`.
+- Fixed missing `volatile` on `connectionManager` in `ICAPClientFactory` to ensure visibility of `setICAPConnectionManager()` writes across threads.
 
 ## [ 1.4.0 ] - 2026-05-24
 ### Added

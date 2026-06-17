@@ -28,8 +28,8 @@ public class ICAPConnectionPool {
     private static final long DEFAULT_IDLE_TIMEOUT_MS = 60000;
 
     private final Map<String, Deque<PooledSocket>> pool;
-    private int maxConnectionsPerHost;
-    private long idleTimeoutMs;
+    private volatile int maxConnectionsPerHost;
+    private volatile long idleTimeoutMs;
 
 
     /**

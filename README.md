@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/toolarium/toolarium-icap-client)](https://github.com/toolarium/toolarium-icap-client/blob/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.4.0)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.4.0/jar)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.4.1)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.4.1/jar)
 [![javadoc](https://javadoc.io/badge2/com.github.toolarium/toolarium-icap-client/javadoc.svg)](https://javadoc.io/doc/com.github.toolarium/toolarium-icap-client)
 
 # toolarium-icap-client
@@ -77,7 +77,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ```groovy
 dependencies {
-    implementation "com.github.toolarium:toolarium-icap-client:1.4.0"
+    implementation "com.github.toolarium:toolarium-icap-client:1.4.1"
 }
 ```
 
@@ -87,9 +87,71 @@ dependencies {
 <dependency>
     <groupId>com.github.toolarium</groupId>
     <artifactId>toolarium-icap-client</artifactId>
-    <version>1.4.0</version>
+    <version>1.4.1</version>
 </dependency>
 ```
+
+## Thread safety and usage model
+
+The library is designed around two distinct roles:
+
+**`ICAPClientFactory` — shared, thread-safe singleton.**
+Holds the OPTIONS response cache and the connection pool. All internal state is guarded by `ConcurrentHashMap` and `volatile` fields. Multiple threads may call `getICAPClient()` concurrently without any external synchronization.
+
+**`ICAPClient` — single-thread, per-request object.**
+Each call to `getICAPClient()` returns a lightweight new instance with the cached server configuration already injected. This instance is **not safe for concurrent use by multiple threads**, because per-instance settings (`supportCompareVerifyIdenticalContent`, `setDefaultRequestInformation`) are expected to be configured once before use and not mutated from another thread while a request is in progress.
+
+### Recommended pattern — create a client per request
+
+```java
+// Safe to call from any thread at any time.
+// The factory OPTIONS cache (TTL-based) makes this lightweight — no round-trip on cache hit.
+ICAPClientFactory.getInstance()
+    .getICAPClient("icap://localhost:1344/srv_clamav")
+    .validateResource(ICAPMode.REQMOD, requestInfo, resource);
+```
+
+This is the preferred approach. The factory caches the server's OPTIONS response (keyed by host/port/service) and reuses it until the server-advertised TTL expires. No OPTIONS round-trip occurs on a cache hit, so the cost of calling `getICAPClient()` per request is negligible.
+
+### Alternative — reuse a client within a single thread
+
+A client instance may be reused sequentially within the same thread:
+
+```java
+// One-time setup per thread (or per logical scanning session).
+ICAPClient client = ICAPClientFactory.getInstance()
+    .getICAPClient("icap://localhost:1344/srv_clamav")
+    .setDefaultRequestInformation(defaults);
+
+// Reuse sequentially — safe within a single thread.
+client.validateResource(ICAPMode.REQMOD, resource1);
+client.validateResource(ICAPMode.REQMOD, resource2);
+```
+
+### Do not share a single client instance across threads
+
+```java
+// WRONG — do not do this.
+ICAPClient sharedClient = ICAPClientFactory.getInstance().getICAPClient(...);
+
+// Thread 1
+sharedClient.validateResource(...);
+
+// Thread 2 (concurrently) — not safe
+sharedClient.validateResource(...);
+```
+
+Instead, each thread should call `getICAPClient()` independently. The factory's OPTIONS cache and connection pool are shared automatically.
+
+### Responsibility split at a glance
+
+| | `ICAPClientFactory` | `ICAPClient` |
+|---|---|---|
+| Thread safety | Thread-safe | Single-thread only |
+| Lifetime | Application-scoped (singleton) | Per-request or per-thread |
+| OPTIONS cache | Owned here (TTL-based, shared) | Injected at construction |
+| Connection pool | Owned here (shared) | Used transparently |
+| Per-request config | — | `setDefaultRequestInformation`, `supportCompareVerifyIdenticalContent` |
 
 ## Usage
 
