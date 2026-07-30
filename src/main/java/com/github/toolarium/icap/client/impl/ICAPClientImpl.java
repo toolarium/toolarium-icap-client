@@ -237,6 +237,11 @@ public class ICAPClientImpl implements ICAPClient {
         }
         validateICAPResource(resource);
 
+        if (resource.isConsumed()) {
+            throw new IOException("ICAPResource stream has already been consumed by a previous validateResource call. "
+                    + "Create a new ICAPResource with a fresh InputStream to retry.");
+        }
+
         ICAPMode icapMode = ICAPMode.REQMOD;
         if (inputMode != null) {
             icapMode = inputMode;
@@ -544,8 +549,13 @@ public class ICAPClientImpl implements ICAPClient {
         if (resource.getResourceLength() < previewSize) {
             previewSize = (int) resource.getResourceLength();
         }
-        String body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE
-                      + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
+        String body;
+        if (ICAPMode.RESPMOD.equals(icapMode)) {
+            body = header + "HTTP/1.1 200 OK" + NEWLINE + ICAPConstants.HEADER_KEY_TRANSFER_ENCODING + ": chunked" + NEWLINE
+                   + ICAPConstants.HEADER_KEY_CONTENT_LENGTH + ": " + resource.getResourceLength() + NEWLINE + NEWLINE;
+        } else {
+            body = header;
+        }
 
         String requestBuffer = "" + icapMode.name() + " icap://" + serviceInformation.getHostName() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName() + " ICAP/" + requestInformation.getApiVersion() + NEWLINE
                              + "Host: " + serviceInformation.getHostName() + NEWLINE
@@ -571,6 +581,7 @@ public class ICAPClientImpl implements ICAPClient {
         } else {
             inputstream = resource.getResourceBody();
         }
+        resource.markConsumed();
         int readBytes = inputstream.read(chunk);
         icapSocket.write(chunk, 0, readBytes);
         icapSocket.write(NEWLINE);

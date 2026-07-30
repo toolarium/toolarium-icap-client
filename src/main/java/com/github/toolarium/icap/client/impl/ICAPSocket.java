@@ -10,6 +10,7 @@ import com.github.toolarium.icap.client.dto.ICAPConstants;
 import com.github.toolarium.icap.client.dto.ICAPHeaderInformation;
 import com.github.toolarium.icap.client.impl.parser.ICAPParser;
 import com.github.toolarium.icap.client.util.ICAPClientUtil;
+import java.io.BufferedOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -77,7 +78,7 @@ public class ICAPSocket implements AutoCloseable {
             try {
                 socket = connectionManager.createSocket(host, port, secureConnection, maxConnectionTimeout, maxReadTimeout);
                 is = new ChunkedInputStream(requestIdentifier, socket.getInputStream());
-                os = socket.getOutputStream();
+                os = new BufferedOutputStream(socket.getOutputStream(), 8192);
                 return;
             } catch (java.net.ConnectException | java.net.SocketTimeoutException e) {
                 lastException = e;

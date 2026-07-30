@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
@@ -124,6 +125,40 @@ public class ICAPResourceTest {
         ICAPResource b = new ICAPResource("file.txt", s2, 200);
 
         assertFalse(a.equals(b));
+    }
+
+
+    /**
+     * A freshly constructed resource is not consumed
+     */
+    @Test
+    public void freshResourceIsNotConsumed() {
+        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        assertFalse(resource.isConsumed());
+    }
+
+
+    /**
+     * markConsumed sets the consumed flag
+     */
+    @Test
+    public void markConsumedSetsFlag() {
+        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        assertFalse(resource.isConsumed());
+        resource.markConsumed();
+        assertTrue(resource.isConsumed());
+    }
+
+
+    /**
+     * markConsumed is idempotent
+     */
+    @Test
+    public void markConsumedIsIdempotent() {
+        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        resource.markConsumed();
+        resource.markConsumed();
+        assertTrue(resource.isConsumed());
     }
 
 

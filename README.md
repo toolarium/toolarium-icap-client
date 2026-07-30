@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/toolarium/toolarium-icap-client)](https://github.com/toolarium/toolarium-icap-client/blob/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.4.1)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.4.1/jar)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.toolarium/toolarium-icap-client/1.4.2)](https://search.maven.org/artifact/com.github.toolarium/toolarium-icap-client/1.4.2/jar)
 [![javadoc](https://javadoc.io/badge2/com.github.toolarium/toolarium-icap-client/javadoc.svg)](https://javadoc.io/doc/com.github.toolarium/toolarium-icap-client)
 
 # toolarium-icap-client
@@ -18,7 +18,7 @@ This library fully implements the ICAP protocol as specified in [RFC 3507](https
 ### Message Format and Headers (RFC 3507 §4.3 - §4.4)
 - **ICAP request line** - Absolute URI format `icap://host:port/service ICAP/1.0`
 - **Host header** - Included in every ICAP request
-- **Encapsulated header** - Correct byte offsets for all REQMOD and RESPMOD forms, including both `req-body` and `res-body` response variants
+- **Encapsulated header** - Correct byte offsets for all REQMOD and RESPMOD forms: REQMOD sends `req-hdr=0, req-body=N` (HTTP request headers only); RESPMOD sends `req-hdr=0, res-hdr=M, res-body=N` (request headers followed by an HTTP response header block). Both `req-body` and `res-body` response variants are supported.
 - **Via header** - Added to encapsulated HTTP requests for surrogate identification
 - **Hop-by-hop exclusion** - Connection, Keep-Alive and other hop-by-hop headers are not encapsulated
 - **Chunked transfer encoding** - All encapsulated bodies use chunked encoding; headers are not chunked
@@ -77,7 +77,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ```groovy
 dependencies {
-    implementation "com.github.toolarium:toolarium-icap-client:1.4.1"
+    implementation "com.github.toolarium:toolarium-icap-client:1.4.2"
 }
 ```
 
@@ -87,7 +87,7 @@ dependencies {
 <dependency>
     <groupId>com.github.toolarium</groupId>
     <artifactId>toolarium-icap-client</artifactId>
-    <version>1.4.1</version>
+    <version>1.4.2</version>
 </dependency>
 ```
 
@@ -224,6 +224,64 @@ DA054425 - Threat found in resource (username: user, source: file, resource: tes
 - X-Response-Message-Digest: [{SHA-256}2e124ff42640aafcc7e267269dd495f35411ce469ec2a64c9af56ccd74bed32f]
 - X-Resource-Identical-Content: [false]
 ```
+
+## ICAPResource lifecycle
+
+`ICAPResource` wraps a live `InputStream` and is **single-use**. The client reads from the stream during `validateResource` and marks the resource consumed at that point. Any subsequent call to `validateResource` with the same object throws `IOException` immediately, before any network activity.
+
+```java
+ICAPResource resource = new ICAPResource(file.getName(), inputStream, file.length());
+
+// First call — succeeds, resource is now consumed.
+client.validateResource(ICAPMode.REQMOD, requestInfo, resource);
+
+// Second call with the same object — throws IOException.
+client.validateResource(ICAPMode.REQMOD, requestInfo, resource); // throws!
+```
+
+### Retry pattern
+
+Create a new `ICAPResource` for each attempt:
+
+```java
+for (int attempt = 0; attempt < 3; attempt++) {
+    // Re-open the stream for every attempt.
+    try (InputStream stream = new FileInputStream(file)) {
+        ICAPResource resource = new ICAPResource(file.getName(), stream, file.length());
+        try {
+            client.validateResource(ICAPMode.REQMOD, requestInfo, resource);
+            break; // success
+        } catch (IOException e) {
+            if (attempt == 2) throw e;
+        }
+    }
+}
+```
+
+If the content is already in memory as a `byte[]`, wrap it in a `ByteArrayInputStream` — a new instance can be created cheaply for each attempt:
+
+```java
+byte[] content = ...;
+for (int attempt = 0; attempt < 3; attempt++) {
+    ICAPResource resource = new ICAPResource("upload.bin",
+            new ByteArrayInputStream(content), content.length);
+    try {
+        client.validateResource(ICAPMode.REQMOD, requestInfo, resource);
+        break;
+    } catch (IOException e) {
+        if (attempt == 2) throw e;
+    }
+}
+```
+
+> **Why single-use?** Reusing a consumed stream would send `(length - previewSize)` bytes while declaring the full original `Content-Length`, causing the server to scan a truncated body and potentially issue a clean verdict for content it never fully received.
+
+You can inspect the consumed state explicitly if needed:
+
+```java
+resource.isConsumed(); // false before validateResource, true after
+```
+
 
 ## Authentication
 

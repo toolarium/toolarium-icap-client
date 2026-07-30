@@ -143,6 +143,27 @@ public class ICAPClientImplResilienceTest {
 
 
     /**
+     * validateResource throws IOException when the ICAPResource has already been consumed.
+     * The check fires before any network activity, so no server is required.
+     *
+     * @throws IOException In case of an I/O error
+     */
+    @Test
+    public void validateWithConsumedResourceThrows() {
+        ICAPClientImpl client = new ICAPClientImpl(
+                new ICAPConnectionManagerImpl(),
+                new ICAPServiceInformation("localhost", 1344, false, "srv_clamav", 3600),
+                null);
+
+        ICAPResource resource = new ICAPResource("test.txt", new ByteArrayInputStream("data".getBytes()), 4);
+        resource.markConsumed();
+
+        assertThrows(IOException.class, () ->
+                client.validateResource(ICAPMode.REQMOD, new ICAPRequestInformation(), resource));
+    }
+
+
+    /**
      * Test validateResource with null requestInformation throws IOException
      *
      * @throws IOException In case of an I/O error

@@ -24,6 +24,7 @@ public class ICAPResource implements Serializable {
     private String resourceName;
     private InputStream resourceInputStream;
     private long resourceLength;
+    private boolean consumed;
 
     
     /**
@@ -72,6 +73,32 @@ public class ICAPResource implements Serializable {
         setResourceName(resourceName);
         setResourceBody(resourceInputStream);
         setResourceLength(resourceLength);
+    }
+
+
+    /**
+     * Returns true if the resource body stream has already been read by a
+     * previous {@code validateResource} call. A consumed resource cannot be
+     * reused: the stream position is past the start, so sending it again would
+     * transmit truncated content while declaring the original length.
+     *
+     * @return true if the stream has been consumed
+     */
+    public boolean isConsumed() {
+        return consumed;
+    }
+
+
+    /**
+     * Marks this resource as consumed. Called by the ICAP client immediately
+     * before the first read from the stream. Once marked, any subsequent call
+     * to {@code validateResource} with this resource throws {@link java.io.IOException}.
+     *
+     * @return this instance
+     */
+    public ICAPResource markConsumed() {
+        this.consumed = true;
+        return this;
     }
 
 
