@@ -110,48 +110,25 @@ public class ChunkedInputStream extends BufferedInputStream {
             nextChunk();
         }
 
+        if (ended) {
+            return -1;
+        }
+
         int sizeToRead = Math.min(len, currentChunkSize - currentChunkPos);
         if (maxChunkSize > 0 && (sizeToRead + chunkSize) > maxChunkSize) {
             sizeToRead = Long.valueOf(maxChunkSize - chunkSize).intValue();
             ended = true;
-        } else {
-            
-            if (headers != null 
-                    && headers.containsKey(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING)
-                    && !headers.get(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING).isEmpty()
-                    && headers.get(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING).get(0).equalsIgnoreCase("chunked")
-                    && headers.containsKey(ICAPConstants.HEADER_KEY_CONTENT_LENGTH)
-                    && !headers.get(ICAPConstants.HEADER_KEY_CONTENT_LENGTH).isEmpty()
-                    && !headers.get(ICAPConstants.HEADER_KEY_CONTENT_LENGTH).get(0).isBlank()) {
-                // NOP
-            } else {                
-                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                readLine(buffer);
-                sizeToRead = len;
-                String size = buffer.toString(StandardCharsetsUTF8);
-                if (!size.isBlank()) {
-                    try {
-                        sizeToRead = Integer.parseInt(size, 16);
-                    } catch (NumberFormatException e) {
-                        throw new IOException("Invalid size [" + size + "]:" + e.getMessage());
-                    }
-                }
-            }
         }
-        
+
         int readBytes = 0;
         try {
             readBytes = super.read(b, off, sizeToRead);
-            
+
             if (LOG.isDebugEnabled()) {
                 int dumpLen = Math.min(sizeToRead, 256);
                 LOG.debug(requestIdentifier + "Raw data (" + sizeToRead + " bytes, showing " + dumpLen + ")\n" + HexDump.getInstance().hexDump(new String(b, off, dumpLen)));
             }
-            
-            if (maxChunkSize <= 0) {
-                super.read(new byte[3], 0, 3); // read 0\r\n
-            }
-            
+
             return readBytes;
         } finally {
             currentChunkPos += readBytes;
@@ -245,21 +222,17 @@ public class ChunkedInputStream extends BufferedInputStream {
      * @throws IOException If an IO error occurs.
      */
     protected int nextChunk() throws IOException {
-        if (headers != null && currentChunkSize == 1) {
-            return currentChunkPos; // skip
-        }
-
         currentChunkPos = 0;
         currentChunkSize = 0;
 
-        // skip trailing newlines
-        ByteArrayOutputStream  buffer = new ByteArrayOutputStream();
+        // skip trailing newlines from the previous chunk
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
         int b = readNewline();
         if (b != LF && b != CR) {
             buffer.write(b);
         }
-        
+
         // read first line
         String line = readLine(buffer);
         if (line == null || line.length() <= 0) {
@@ -268,13 +241,8 @@ public class ChunkedInputStream extends BufferedInputStream {
 
         if (line.toString().startsWith("HTTP")) {
             readHeader();
-            if (headers == null || !headers.containsKey(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING)
-                    || headers.get(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING).isEmpty()
-                    || !headers.get(ICAPConstants.HEADER_KEY_TRANSFER_ENCODING).get(0).equalsIgnoreCase("chunked")) {
-                currentChunkSize = 1; // ignore not a chunked content
-                return currentChunkSize;
-            }
-            
+            // Always read the ICAP chunk size after the HTTP response headers,
+            // regardless of whether the HTTP response uses Transfer-Encoding or Content-Length.
             line = readLine(new ByteArrayOutputStream());
             if (line != null && line.length() == 0) {
                 line = readLine(new ByteArrayOutputStream());
