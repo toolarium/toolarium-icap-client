@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Test;
  * @author patrick
  */
 public class ICAPClientImplResilienceTest {
+    private static final String LOCALHOST = "localhost";
+    private static final String SERVICE_NAME = "srv_clamav";
 
     /**
      * Reset connection manager timeouts before each test to avoid pollution from other tests
@@ -101,7 +103,7 @@ public class ICAPClientImplResilienceTest {
     public void optionsNoArgForcesRefresh() throws IOException {
         ICAPClientImpl client = new ICAPClientImpl(
                 new ICAPConnectionManagerImpl(),
-                new ICAPServiceInformation("localhost", 1344, false, "srv_clamav", 3600),
+                new ICAPServiceInformation(LOCALHOST, 1344, false, SERVICE_NAME, 3600),
                 null);
 
         // First call should fetch from server
@@ -127,7 +129,7 @@ public class ICAPClientImplResilienceTest {
     public void validateZeroLengthResourceNoNPE() throws IOException, ContentBlockedException {
         ICAPClientImpl client = new ICAPClientImpl(
                 new ICAPConnectionManagerImpl(),
-                new ICAPServiceInformation("localhost", 1344, false, "srv_clamav", 3600),
+                new ICAPServiceInformation(LOCALHOST, 1344, false, SERVICE_NAME, 3600),
                 null);
 
         ByteArrayInputStream stream = new ByteArrayInputStream(new byte[0]);
@@ -152,7 +154,7 @@ public class ICAPClientImplResilienceTest {
     public void validateWithConsumedResourceThrows() {
         ICAPClientImpl client = new ICAPClientImpl(
                 new ICAPConnectionManagerImpl(),
-                new ICAPServiceInformation("localhost", 1344, false, "srv_clamav", 3600),
+                new ICAPServiceInformation(LOCALHOST, 1344, false, SERVICE_NAME, 3600),
                 null);
 
         ICAPResource resource = new ICAPResource("test.txt", new ByteArrayInputStream("data".getBytes()), 4);
@@ -172,7 +174,7 @@ public class ICAPClientImplResilienceTest {
     public void validateWithNullRequestInfoThrows() {
         ICAPClientImpl client = new ICAPClientImpl(
                 new ICAPConnectionManagerImpl(),
-                new ICAPServiceInformation("localhost", 1344, false, "srv_clamav", 3600),
+                new ICAPServiceInformation(LOCALHOST, 1344, false, SERVICE_NAME, 3600),
                 null);
 
         assertThrows(IOException.class, () -> {
@@ -192,7 +194,7 @@ public class ICAPClientImplResilienceTest {
     public void noDigestHeadersWhenCompareDisabled() throws IOException, ContentBlockedException {
         ByteArrayInputStream stream = new ByteArrayInputStream("ABCDEFGH".getBytes());
         ICAPHeaderInformation result = ICAPClientFactory.getInstance()
-                .getICAPClient("localhost", 1344, "srv_clamav")
+                .getICAPClient(LOCALHOST, 1344, SERVICE_NAME)
                 .supportCompareVerifyIdenticalContent(false)
                 .validateResource(
                         ICAPMode.RESPMOD,
@@ -216,7 +218,7 @@ public class ICAPClientImplResilienceTest {
     public void digestHeadersPresentWhenCompareEnabled() throws IOException, ContentBlockedException {
         ByteArrayInputStream stream = new ByteArrayInputStream("ABCDEFGH".getBytes());
         ICAPHeaderInformation result = ICAPClientFactory.getInstance()
-                .getICAPClient("localhost", 1344, "srv_clamav")
+                .getICAPClient(LOCALHOST, 1344, SERVICE_NAME)
                 .supportCompareVerifyIdenticalContent(true)
                 .validateResource(
                         ICAPMode.RESPMOD,

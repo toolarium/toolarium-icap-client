@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Verifies that REQMOD and RESPMOD build the correct Encapsulated body layout,
  * and that ICAPSocket buffers writes to avoid TLS record fragmentation.
- *
+ * <p>
  * Both tests use a self-contained in-process mock ICAP server (ServerSocket),
  * so they run without any external docker container.
  *
@@ -269,10 +269,10 @@ public class ICAPClientImplEncapsulationTest {
     /**
      * Starts a single-connection mock ICAP server, runs validateResource against it
      * with the given mode, and returns the raw bytes the client sent as a UTF-8 string.
-     *
+     * <p>
      * The mock server responds with ICAP/1.0 204 Unmodified, which causes
      * validateResource to return normally without throwing.
-     *
+     * <p>
      * A pre-built ICAPRemoteServiceConfiguration is injected into the client so
      * that no OPTIONS exchange is needed — the mock server only ever sees one
      * connection (the REQMOD or RESPMOD request).
@@ -330,7 +330,7 @@ public class ICAPClientImplEncapsulationTest {
 
     /**
      * Reads bytes from the stream until the end-of-preview sentinel is found.
-     *
+     * <p>
      * When the entire resource fits inside the preview window (which is always true
      * for our 30-byte test content against the default 4096-byte preview), the client
      * terminates the preview phase with {@code 0; ieof\r\n\r\n}.
@@ -353,6 +353,13 @@ public class ICAPClientImplEncapsulationTest {
     }
 
 
+    /**
+     * Returns true if {@code data} ends with {@code suffix}.
+     *
+     * @param data the byte array to inspect
+     * @param suffix the suffix to check for
+     * @return true if data ends with suffix
+     */
     private boolean endsWith(byte[] data, byte[] suffix) {
         if (data.length < suffix.length) {
             return false;

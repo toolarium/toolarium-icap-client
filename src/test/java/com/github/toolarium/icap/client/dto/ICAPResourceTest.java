@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ICAPResourceTest {
     private static final String TEST_DATA = "test";
+    private static final String TEST_FILENAME = "file.txt";
 
 
     /**
@@ -106,8 +107,8 @@ public class ICAPResourceTest {
     public void equalsAndHashCode() {
         ByteArrayInputStream s1 = new ByteArrayInputStream(TEST_DATA.getBytes());
         ByteArrayInputStream s2 = new ByteArrayInputStream(TEST_DATA.getBytes());
-        ICAPResource a = new ICAPResource("file.txt", s1, 100);
-        ICAPResource b = new ICAPResource("file.txt", s2, 100);
+        ICAPResource a = new ICAPResource(TEST_FILENAME, s1, 100);
+        ICAPResource b = new ICAPResource(TEST_FILENAME, s2, 100);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
@@ -121,8 +122,8 @@ public class ICAPResourceTest {
     public void notEqualsLength() {
         ByteArrayInputStream s1 = new ByteArrayInputStream(TEST_DATA.getBytes());
         ByteArrayInputStream s2 = new ByteArrayInputStream(TEST_DATA.getBytes());
-        ICAPResource a = new ICAPResource("file.txt", s1, 100);
-        ICAPResource b = new ICAPResource("file.txt", s2, 200);
+        ICAPResource a = new ICAPResource(TEST_FILENAME, s1, 100);
+        ICAPResource b = new ICAPResource(TEST_FILENAME, s2, 200);
 
         assertFalse(a.equals(b));
     }
@@ -133,7 +134,7 @@ public class ICAPResourceTest {
      */
     @Test
     public void freshResourceIsNotConsumed() {
-        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        ICAPResource resource = new ICAPResource(TEST_FILENAME, new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
         assertFalse(resource.isConsumed());
     }
 
@@ -143,7 +144,7 @@ public class ICAPResourceTest {
      */
     @Test
     public void markConsumedSetsFlag() {
-        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        ICAPResource resource = new ICAPResource(TEST_FILENAME, new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
         assertFalse(resource.isConsumed());
         resource.markConsumed();
         assertTrue(resource.isConsumed());
@@ -155,7 +156,7 @@ public class ICAPResourceTest {
      */
     @Test
     public void markConsumedIsIdempotent() {
-        ICAPResource resource = new ICAPResource("file.txt", new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
+        ICAPResource resource = new ICAPResource(TEST_FILENAME, new ByteArrayInputStream(TEST_DATA.getBytes()), 4);
         resource.markConsumed();
         resource.markConsumed();
         assertTrue(resource.isConsumed());
@@ -168,7 +169,7 @@ public class ICAPResourceTest {
     @Test
     public void testToString() {
         ByteArrayInputStream stream = new ByteArrayInputStream(TEST_DATA.getBytes());
-        ICAPResource resource = new ICAPResource("file.txt", stream, 100);
+        ICAPResource resource = new ICAPResource(TEST_FILENAME, stream, 100);
         assertNotNull(resource.toString());
         assertEquals("ICAPResource [resourceName=file.txt, resourceLength=100]", resource.toString());
     }
