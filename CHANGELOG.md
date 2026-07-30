@@ -5,12 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [ 1.4.3 ] - 2026-07-30
+
 ## [ 1.4.2 ] - 2026-07-30
 ### Fixed
 - Fixed REQMOD encapsulation: the HTTP response header block (`HTTP/1.1 200 OK` + `Transfer-Encoding` + `Content-Length`) was unconditionally appended to the `body` variable and therefore placed inside the `req-hdr` region, after the `\r\n\r\n` that already terminated the HTTP request headers. Strict ICAP servers (e.g. Symantec Protection Engine 9.3.0.29) parsed a GET with no body indicators, concluded there was nothing to scan, and returned `ICAP/1.0 204 No Content Necessary` at the preview stage — silently passing content that was never examined. The fix scopes the HTTP response header block to RESPMOD only; REQMOD now sends only the HTTP request header block as `body`, so the declared `req-body` offset correctly points to the first byte of resource content.
 - Fixed TLS record fragmentation: `ICAPSocket` assigned `os = socket.getOutputStream()` directly, causing each `write()` call to become its own TLS record. The REQMOD preview phase emits four consecutive writes (ICAP+HTTP headers, hex chunk size, preview bytes, terminator); some servers (including Symantec Protection Engine over `icaps://`) reset the connection on fragmented records. Fixed by wrapping the output stream with `BufferedOutputStream(8192)` so all writes accumulate in the buffer and are sent as a single TLS record on `flush()`. The buffer size of 8192 bytes covers the RFC default preview of 4096 bytes; if a server advertises a preview size at or above 8192 bytes, the preview chunk bypasses the buffer and is still written as one socket write (one TLS record).
 - Fixed silent data corruption when an `ICAPResource` is reused across retry attempts: `ICAPResource` now tracks whether its stream has been consumed. `validateResource` throws `IOException` immediately if the resource is already consumed, rather than sending a truncated body while declaring the original `Content-Length`. The check fires before any network activity. Callers must create a new `ICAPResource` with a fresh `InputStream` for each attempt.
-
 
 ## [ 1.4.1 ] - 2026-06-17
 ### Fixed
