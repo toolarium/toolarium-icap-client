@@ -168,16 +168,24 @@ public class ICAPConnectionManagerImpl implements ICAPConnectionManager {
      * @throws IOException In case of an I/O error
      */
     protected Socket createSecureSocket(String hostname, int port, Integer maxConnectionTimeout, Integer maxReadTimeout) throws UnknownHostException, IOException {
+        // Connect a plain socket first so the hostname is preserved as the TLS peer name.
+        // Using the no-arg SSLSocketFactory.createSocket() followed by connect(InetSocketAddress)
+        // loses the hostname (the address is already resolved to an IP), causing "HTTPS" endpoint
+        // identification to validate the certificate against the IP rather than the DNS name.
+        // The createSocket(Socket, String, int, boolean) overload binds the hostname to the SSL
+        // socket so verification uses the name, matching DNS SANs correctly.
+        Socket plain = new Socket();
+        plain.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
+        plain.connect(new InetSocketAddress(hostname, port), getSocketConnectionTimeout(maxConnectionTimeout));
+
         SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-        SSLSocket sslSocket = (SSLSocket)factory.createSocket();
+        SSLSocket sslSocket = (SSLSocket) factory.createSocket(plain, hostname, port, true);
 
         // enable hostname verification (same as HTTPS)
         SSLParameters sslParams = sslSocket.getSSLParameters();
         sslParams.setEndpointIdentificationAlgorithm("HTTPS");
         sslSocket.setSSLParameters(sslParams);
 
-        sslSocket.setSoTimeout(getReadSocketTimeout(maxReadTimeout));
-        sslSocket.connect(new InetSocketAddress(hostname, port), getSocketConnectionTimeout(maxConnectionTimeout));
         sslSocket.startHandshake();
         return sslSocket;
     }
