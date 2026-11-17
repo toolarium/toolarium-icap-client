@@ -9,6 +9,7 @@ package com.github.toolarium.icap.client;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import javax.net.ssl.SSLSocketFactory;
 
 
 /**
@@ -50,6 +51,31 @@ public interface ICAPConnectionManager {
 
 
     /**
+     * Get the default socket connection timeout in milliseconds or null.
+     *
+     * @return the default socket connection timeout in milliseconds or null
+     */
+    Integer getDefaultSocketConnectionTimeout();
+
+
+    /**
+     * Get the default socket read timeout in milliseconds or null.
+     *
+     * @return the default socket read timeout in milliseconds or null
+     */
+    Integer getDefaultSocketReadTimeout();
+
+
+    /**
+     * Define the SSL socket factory for secure connections (icaps), e.g. from an SSLContext with a custom trust store
+     * or a client certificate. The hostname verification stays enabled. A value of null uses the default of the JVM.
+     *
+     * @param sslSocketFactory the SSL socket factory or null
+     */
+    void setSSLSocketFactory(SSLSocketFactory sslSocketFactory);
+
+
+    /**
      * Get the maximum number of idle connections per host in the pool.
      *
      * @return the maximum number of idle connections per host
@@ -63,6 +89,18 @@ public interface ICAPConnectionManager {
      * @param maxConnectionsPerHost the maximum number of idle connections per host
      */
     void setMaxPoolConnectionsPerHost(int maxConnectionsPerHost);
+
+
+    /**
+     * Set the server-advertised maximum connections of a specific host (RFC 3507 §4.10). It limits only the pool
+     * of this host and only if it is lower than the maximum pool connections per host.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     * @param maxConnections the server maximum connections; a value &lt;= 0 removes the limit
+     */
+    void setServerMaxConnections(String hostname, int port, boolean secureConnection, int maxConnections);
 
 
     /**
@@ -91,6 +129,16 @@ public interface ICAPConnectionManager {
      * @param socket the socket to release
      */
     void releaseSocket(String hostname, int port, boolean secureConnection, Socket socket);
+
+
+    /**
+     * Close all pooled connections of a specific host, e.g. after a pooled connection turned out to be closed by the server.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     */
+    void evictPool(String hostname, int port, boolean secureConnection);
 
 
     /**

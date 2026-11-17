@@ -7,8 +7,8 @@ package com.github.toolarium.icap.client.impl.parser;
 
 import com.github.toolarium.icap.client.dto.ICAPConstants;
 import com.github.toolarium.icap.client.dto.ICAPHeaderInformation;
+import com.github.toolarium.icap.client.dto.ICAPHeaderMap;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
  * @author patrick
  */
 public final class ICAPParser {
-    private static final Pattern LINE_STATUS_PATTERN = Pattern.compile("(ICAP)\\/(1.0)\\s(\\d{3})\\s(.*)");
+    // the reason phrase is optional, some servers send e.g. "ICAP/1.0 204"
+    private static final Pattern LINE_STATUS_PATTERN = Pattern.compile("(ICAP)/(1\\.0)\\s+(\\d{3})(?:\\s+(.*))?");
 
     
     /**
@@ -63,12 +64,16 @@ public final class ICAPParser {
         
         // parse ICAP protocol header line
         if (protocolHeaderLine != null && !protocolHeaderLine.isBlank()) {
-            Matcher matcher = LINE_STATUS_PATTERN.matcher(protocolHeaderLine);
+            Matcher matcher = LINE_STATUS_PATTERN.matcher(protocolHeaderLine.trim());
             if (matcher.matches()) {
                 headerInformation.setProtocol(matcher.group(1));
                 headerInformation.setVersion(matcher.group(2));
                 headerInformation.setStatus(Integer.parseInt(matcher.group(3)));
-                headerInformation.setMessage(matcher.group(4));
+                String message = matcher.group(4);
+                if (message == null) {
+                    message = "";
+                }
+                headerInformation.setMessage(message);
             }
         }
 
@@ -89,7 +94,8 @@ public final class ICAPParser {
          * Connection: keep-alive
          * ISTag: CI0001-000-0978-6918203
          */
-        Map<String,List<String>> headers = new LinkedHashMap<>();
+        // header field names are case-insensitive (RFC 3507 §4.3)
+        Map<String,List<String>> headers = new ICAPHeaderMap();
         String key = ICAPConstants.HEADER_KEY_X_ICAP_STATUSLINE;
         for (String line : headerLines) {
             int idx = line.indexOf(':');

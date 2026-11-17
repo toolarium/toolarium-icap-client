@@ -5,13 +5,16 @@
  */
 package com.github.toolarium.icap.client.dto;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -19,12 +22,17 @@ import java.util.Objects;
  *
  * @author Patrick Meier
  */
-public class ICAPResource implements Serializable {
+public class ICAPResource implements Serializable, Closeable {
     private static final long serialVersionUID = -1034290022203558461L;
+    private static final int STATE_FRESH = 0;
+    private static final int STATE_IN_USE = 1;
+    private static final int STATE_CONSUMED = 2;
     private String resourceName;
-    private InputStream resourceInputStream;
+    // a stream can not be serialized, a deserialized resource has no content and is rejected
+    private transient InputStream resourceInputStream;
     private long resourceLength;
-    private boolean consumed;
+    private boolean streamOwner;
+    private final AtomicInteger state = new AtomicInteger(STATE_FRESH);
 
     
     /**
@@ -48,6 +56,7 @@ public class ICAPResource implements Serializable {
         setResourceName(file.getName());
         setResourceBody(new FileInputStream(file));
         setResourceLength(file.length());
+        this.streamOwner = true;
     }
 
 
@@ -85,7 +94,7 @@ public class ICAPResource implements Serializable {
      * @return true if the stream has been consumed
      */
     public boolean isConsumed() {
-        return consumed;
+        return state.get() == STATE_CONSUMED;
     }
 
 
@@ -97,8 +106,51 @@ public class ICAPResource implements Serializable {
      * @return this instance
      */
     public ICAPResource markConsumed() {
-        this.consumed = true;
+        state.set(STATE_CONSUMED);
         return this;
+    }
+
+
+    /**
+     * Atomically claims this resource for exclusive use by one {@code validateResource} call.
+     *
+     * @return true if the resource could be claimed; false if it is already in use or consumed
+     */
+    public boolean acquire() {
+        return state.compareAndSet(STATE_FRESH, STATE_IN_USE);
+    }
+
+
+    /**
+     * Releases a claim of {@link #acquire()} in case the stream was not read, so the resource can be used for a retry.
+     * It has no effect on a consumed resource.
+     */
+    public void release() {
+        state.compareAndSet(STATE_IN_USE, STATE_FRESH);
+    }
+
+
+    /**
+     * Check if the resource stream was opened by this resource (see {@link #ICAPResource(Path)}) and therefore
+     * is closed by the ICAP client after it was consumed.
+     *
+     * @return true if this resource owns the stream
+     */
+    public boolean isStreamOwner() {
+        return streamOwner;
+    }
+
+
+    /**
+     * Closes the resource input stream.
+     *
+     * @see java.io.Closeable#close()
+     */
+    @Override
+    public void close() throws IOException {
+        if (resourceInputStream != null) {
+            resourceInputStream.close();
+        }
     }
 
 

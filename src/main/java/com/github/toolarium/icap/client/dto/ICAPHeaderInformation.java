@@ -6,7 +6,6 @@
 package com.github.toolarium.icap.client.dto;
 
 import java.io.Serializable;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +34,7 @@ public class ICAPHeaderInformation implements Serializable {
         version = "";
         status = 0;
         message = "";
-        headers = new LinkedHashMap<>();
+        headers = new ICAPHeaderMap();
     }
 
 
@@ -129,13 +128,17 @@ public class ICAPHeaderInformation implements Serializable {
 
 
     /**
-     * Set the header entries
+     * Set the header entries. The header names are case-insensitive.
      *
      * @param headers the headers
      * @return the ICAPHeaderInformation
      */
     public ICAPHeaderInformation setHeaders(Map<String, List<String>> headers) {
-        this.headers = headers;
+        if (headers instanceof ICAPHeaderMap) {
+            this.headers = headers;
+        } else {
+            this.headers = new ICAPHeaderMap(headers);
+        }
         return this;
     }
 
@@ -167,7 +170,11 @@ public class ICAPHeaderInformation implements Serializable {
      * @return the ICAPHeaderInformation
      */
     public ICAPHeaderInformation setTrailers(Map<String, List<String>> trailers) {
-        this.trailers = trailers;
+        if (trailers == null || trailers instanceof ICAPHeaderMap) {
+            this.trailers = trailers;
+        } else {
+            this.trailers = new ICAPHeaderMap(trailers);
+        }
         return this;
     }
 

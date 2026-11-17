@@ -8,8 +8,12 @@ package com.github.toolarium.icap.client;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.github.toolarium.icap.client.dto.ICAPMode;
+import com.github.toolarium.icap.client.dto.ICAPResource;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
 
@@ -77,24 +81,24 @@ public class ICAPClientFactoryTest {
 
 
     /**
-     * Test null URL
+     * Test null URL: a client without ICAP server, only FILEMOD is supported
+     *
+     * @throws Exception In case of an error
      */
     @Test
-    public void parseNullUrl() {
-        assertThrows(MalformedURLException.class, () -> {
-            ICAPClientFactory.getInstance().getICAPClient((String) null);
-        });
+    public void parseNullUrl() throws Exception {
+        assertFileModeOnlyClient(ICAPClientFactory.getInstance().getICAPClient((String) null));
     }
 
 
     /**
-     * Test empty URL
+     * Test empty URL: a client without ICAP server, only FILEMOD is supported
+     *
+     * @throws Exception In case of an error
      */
     @Test
-    public void parseEmptyUrl() {
-        assertThrows(MalformedURLException.class, () -> {
-            ICAPClientFactory.getInstance().getICAPClient("");
-        });
+    public void parseEmptyUrl() throws Exception {
+        assertFileModeOnlyClient(ICAPClientFactory.getInstance().getICAPClient(""));
     }
 
 
@@ -110,13 +114,48 @@ public class ICAPClientFactoryTest {
 
 
     /**
-     * Test blank URL
+     * Test invalid port, missing host and unterminated IPv6 address
      */
     @Test
-    public void parseBlankUrl() {
-        assertThrows(MalformedURLException.class, () -> {
-            ICAPClientFactory.getInstance().getICAPClient("   ");
-        });
+    public void parseInvalidPortAndHost() {
+        assertThrows(MalformedURLException.class, () -> ICAPClientFactory.getInstance().getICAPClient("icap://myhost:abc/srv_clamav"));
+        assertThrows(MalformedURLException.class, () -> ICAPClientFactory.getInstance().getICAPClient("icap://myhost:70000/srv_clamav"));
+        assertThrows(MalformedURLException.class, () -> ICAPClientFactory.getInstance().getICAPClient("icap://:1344/srv_clamav"));
+        assertThrows(MalformedURLException.class, () -> ICAPClientFactory.getInstance().getICAPClient("icap://[::1:1344/srv_clamav"));
+    }
+
+
+    /**
+     * Test blank URL: a client without ICAP server, only FILEMOD is supported
+     *
+     * @throws Exception In case of an error
+     */
+    @Test
+    public void parseBlankUrl() throws Exception {
+        assertFileModeOnlyClient(ICAPClientFactory.getInstance().getICAPClient("   "));
+    }
+
+
+    /**
+     * Assert a client without ICAP server: REQMOD, RESPMOD and OPTIONS are rejected with a MalformedURLException
+     *
+     * @param client the client
+     */
+    private void assertFileModeOnlyClient(ICAPClient client) {
+        assertNotNull(client);
+        assertThrows(MalformedURLException.class, () -> client.validateResource(ICAPMode.REQMOD, content()));
+        assertThrows(MalformedURLException.class, () -> client.validateResource(ICAPMode.RESPMOD, content()));
+        assertThrows(MalformedURLException.class, () -> client.options());
+    }
+
+
+    /**
+     * Create a test resource
+     *
+     * @return the resource
+     */
+    private ICAPResource content() {
+        return new ICAPResource("test.txt", new ByteArrayInputStream("data".getBytes(StandardCharsets.UTF_8)), 4);
     }
 
 

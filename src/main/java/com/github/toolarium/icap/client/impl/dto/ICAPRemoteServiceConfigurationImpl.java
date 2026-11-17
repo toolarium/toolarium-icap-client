@@ -5,11 +5,14 @@
  */
 package com.github.toolarium.icap.client.impl.dto;
 
+import com.github.toolarium.icap.client.dto.ICAPHeaderMap;
 import com.github.toolarium.icap.client.dto.ICAPMode;
 import com.github.toolarium.icap.client.dto.ICAPRemoteServiceConfiguration;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +36,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
     private List<String> transferPreview;
     private List<String> transferIgnore;
     private List<String> transferComplete;
+    private boolean frozen;
 
 
     /**
@@ -57,9 +61,32 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
         this.optionMethods = optionMethods;
         this.serverPreviewSize = serverPreviewSize;
         this.serverAllow204 = serverAllow204;
-        this.headers = headers;
+        this.headers = unmodifiableHeaders(headers);
         this.optionsTTL = -1;
         this.maxConnections = -1;
+        this.frozen = false;
+    }
+
+
+    /**
+     * Make the configuration read-only. The configuration is cached and shared between threads, so it is
+     * frozen before it is published; afterwards every setter throws an {@link IllegalStateException}.
+     *
+     * @return this instance
+     */
+    public ICAPRemoteServiceConfigurationImpl freeze() {
+        this.frozen = true;
+        return this;
+    }
+
+
+    /**
+     * Check if the configuration is read-only.
+     *
+     * @return true if it is read-only
+     */
+    public boolean isFrozen() {
+        return frozen;
     }
 
 
@@ -70,6 +97,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setOptionsTTL(int optionsTTL) {
+        checkNotFrozen();
         this.optionsTTL = optionsTTL;
         return this;
     }
@@ -82,6 +110,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setMaxConnections(int maxConnections) {
+        checkNotFrozen();
         this.maxConnections = maxConnections;
         return this;
     }
@@ -94,6 +123,7 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setServiceId(String serviceId) {
+        checkNotFrozen();
         this.serviceId = serviceId;
         return this;
     }
@@ -106,7 +136,8 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setTransferPreview(List<String> transferPreview) {
-        this.transferPreview = transferPreview;
+        checkNotFrozen();
+        this.transferPreview = unmodifiableList(transferPreview);
         return this;
     }
 
@@ -118,7 +149,8 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setTransferIgnore(List<String> transferIgnore) {
-        this.transferIgnore = transferIgnore;
+        checkNotFrozen();
+        this.transferIgnore = unmodifiableList(transferIgnore);
         return this;
     }
 
@@ -130,8 +162,54 @@ public class ICAPRemoteServiceConfigurationImpl implements ICAPRemoteServiceConf
      * @return this instance
      */
     public ICAPRemoteServiceConfigurationImpl setTransferComplete(List<String> transferComplete) {
-        this.transferComplete = transferComplete;
+        checkNotFrozen();
+        this.transferComplete = unmodifiableList(transferComplete);
         return this;
+    }
+
+
+    /**
+     * Check that the configuration is not read-only
+     *
+     * @throws IllegalStateException In case the configuration is frozen
+     */
+    private void checkNotFrozen() {
+        if (frozen) {
+            throw new IllegalStateException("The remote service configuration is read-only!");
+        }
+    }
+
+
+    /**
+     * Create an unmodifiable copy of the headers, the configuration is cached and shared between threads.
+     *
+     * @param headers the headers
+     * @return the unmodifiable headers or null
+     */
+    private static Map<String, List<String>> unmodifiableHeaders(Map<String, List<String>> headers) {
+        if (headers == null) {
+            return null;
+        }
+
+        ICAPHeaderMap result = new ICAPHeaderMap();
+        for (Map.Entry<String, List<String>> e : headers.entrySet()) {
+            result.put(e.getKey(), unmodifiableList(e.getValue()));
+        }
+        return Collections.unmodifiableMap(result);
+    }
+
+
+    /**
+     * Create an unmodifiable copy of a list
+     *
+     * @param list the list
+     * @return the unmodifiable list or null
+     */
+    private static List<String> unmodifiableList(List<String> list) {
+        if (list == null) {
+            return null;
+        }
+        return Collections.unmodifiableList(new ArrayList<>(list));
     }
 
 

@@ -33,11 +33,14 @@ public class ChunkedInputStream extends BufferedInputStream {
     private static final String NEWLINE = "" + (char)CR + (char)LF;
     private static final int MAX_HEADER_COUNT = 128;
     private static final int MAX_HEADER_BYTES = 64 * 1024;
+    private static final int MAX_LINE_BYTES = MAX_HEADER_BYTES;
 
     private String requestIdentifier;
     private int currentChunkPos;
     private int currentChunkSize;
     private boolean ended;
+    private boolean complete;
+    private String httpStatusLine;
     private Map<String, List<String>> headers;
     private Map<String, List<String>> trailers;
     private long chunkSize;
@@ -63,6 +66,7 @@ public class ChunkedInputStream extends BufferedInputStream {
         chunkSize = 0;
         maxChunkSize = -1;
         ended = false;
+        complete = false;
     }
     
 
@@ -71,20 +75,17 @@ public class ChunkedInputStream extends BufferedInputStream {
      */
     @Override
     public int read() throws IOException {
-        if (ended) {
+        // use the same chunk and length handling as the block read
+        byte[] b = new byte[1];
+        int readBytes;
+        do {
+            readBytes = read(b, 0, 1);
+        } while (readBytes == 0);
+
+        if (readBytes < 0) {
             return -1;
         }
-  
-        if (currentChunkPos >= currentChunkSize) {
-            nextChunk();
-        }
-
-        try {
-            return super.read();
-        } finally {
-            currentChunkPos++;
-            chunkSize++;
-        }
+        return b[0] & 0xFF;
     }
 
     
@@ -164,7 +165,40 @@ public class ChunkedInputStream extends BufferedInputStream {
     public Map<String, List<String>> getTrailers() {
         return trailers;
     }
-    
+
+
+    /**
+     * Check if the chunked body was read completely, including the terminating zero-length chunk and the trailers.
+     *
+     * @return true if the chunked body was read completely
+     */
+    public boolean isComplete() {
+        return complete;
+    }
+
+
+    /**
+     * Get the status code of the encapsulated HTTP response, e.g. 403 of "HTTP/1.1 403 Forbidden".
+     *
+     * @return the status code or 0 if there was no encapsulated HTTP response
+     */
+    public int getHttpStatus() {
+        if (httpStatusLine == null) {
+            return 0;
+        }
+
+        String[] split = httpStatusLine.trim().split("\\s+");
+        if (split.length < 2) {
+            return 0;
+        }
+
+        try {
+            return Integer.parseInt(split[1]);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     
     /**
      * Read the header
@@ -235,11 +269,17 @@ public class ChunkedInputStream extends BufferedInputStream {
 
         // read first line
         String line = readLine(buffer);
-        if (line == null || line.length() <= 0) {
+        if (line == null) {
+            ended = true;
+            return -1;
+        }
+
+        if (line.length() <= 0) {
             return -1;
         }
 
         if (line.toString().startsWith("HTTP")) {
+            httpStatusLine = line;
             readHeader();
             // Always read the ICAP chunk size after the HTTP response headers,
             // regardless of whether the HTTP response uses Transfer-Encoding or Content-Length.
@@ -256,6 +296,7 @@ public class ChunkedInputStream extends BufferedInputStream {
             // In RESPMOD, response headers follow the request headers (RFC 3507 4.8.2).
             // In REQMOD with body only, the chunk size follows directly (RFC 3507 4.8.3).
             if (line != null && line.startsWith("HTTP")) {
+                httpStatusLine = line;
                 readHeader();
                 line = readLine(new ByteArrayOutputStream());
                 if (line != null && line.length() == 0) {
@@ -264,21 +305,31 @@ public class ChunkedInputStream extends BufferedInputStream {
             }
         }
 
+        if (line == null) {
+            ended = true;
+            throw new IOException("Unexpected end of stream, missing chunk header!");
+        }
+
         int semiIdx = line.indexOf(';');
         if (semiIdx >= 0) {
             line = line.substring(0, semiIdx);
         }
-        
+
         try {
             currentChunkSize = Integer.parseInt(line.trim(), 16);
         } catch (NumberFormatException e) {
             throw new IOException("Bad chunk header [" + line + "]:" + e.getMessage());
         }
 
+        if (currentChunkSize < 0) {
+            throw new IOException("Bad chunk size [" + line + "]!");
+        }
+
         // RFC 3507 §4.3.1: after the zero-length terminating chunk, read any trailer headers
         if (currentChunkSize == 0) {
             readTrailers();
             ended = true;
+            complete = true;
         }
 
         return currentChunkSize;
@@ -294,12 +345,20 @@ public class ChunkedInputStream extends BufferedInputStream {
     private void readTrailers() throws IOException {
         List<String> trailerLines = new ArrayList<>();
         ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
+        int totalTrailerBytes = 0;
         String line;
         do {
             lineBuffer.reset();
             line = readLine(lineBuffer);
             if (line != null && !line.isEmpty()) {
                 trailerLines.add(line);
+                totalTrailerBytes += line.length() + 2;
+                if (trailerLines.size() > MAX_HEADER_COUNT) {
+                    throw new IOException("Trailer count exceeds maximum of " + MAX_HEADER_COUNT);
+                }
+                if (totalTrailerBytes > MAX_HEADER_BYTES) {
+                    throw new IOException("Trailer size exceeds maximum of " + MAX_HEADER_BYTES + " bytes");
+                }
             }
         } while (line != null && !line.isEmpty());
 
@@ -353,6 +412,9 @@ public class ChunkedInputStream extends BufferedInputStream {
         int b;
         while (((b = super.read()) != -1) &&  b != CR) {
             buffer.write(b);
+            if (buffer.size() > MAX_LINE_BYTES) {
+                throw new IOException("Line length exceeds maximum of " + MAX_LINE_BYTES + " bytes");
+            }
         }
 
         if (b == CR) {

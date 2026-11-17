@@ -22,7 +22,7 @@
 
   <!-- simple file appender -->
   <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-    <file>build/fp-icap-client.log</file>
+    <file>build/toolarium-icap-client.log</file>
     <append>false</append>
     <encoder>
       <pattern>%-30(%d{ISO8601} - %1.-1level - %-6.6t{5}) - %-100.100(%logger#%M:%L){99} - %-30.30X{logInformation} | %msg%n</pattern>

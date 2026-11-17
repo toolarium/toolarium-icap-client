@@ -10,10 +10,13 @@ import com.github.toolarium.icap.client.dto.ICAPServiceInformation;
 import com.github.toolarium.icap.client.impl.ICAPClientImpl;
 import com.github.toolarium.icap.client.impl.ICAPConnectionManagerImpl;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.MalformedURLException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +29,12 @@ import org.slf4j.LoggerFactory;
 public final class ICAPClientFactory {
     private static final int DEFAULT_MAX_CACHE_AGE = 12 * 60 * 60;
     private static final Logger LOG = LoggerFactory.getLogger(ICAPClientFactory.class);
-    private Map<ICAPServiceInformation, ICAPRemoteServiceConfiguration> serviceCache;
+    private static final long MIN_OPTIONS_TTL = 10;
+    private static final long MAX_CACHE_ENTRY_AGE = 2L * DEFAULT_MAX_CACHE_AGE;
+    private static final long REFRESH_BACKOFF_MS = 30000;
+    private final Map<String, Long> refreshFailures = new ConcurrentHashMap<String, Long>();
+    private final Map<String, ICAPRemoteServiceConfiguration> serviceCache;
+    private final ConcurrentHashMap<String, CompletableFuture<ICAPRemoteServiceConfiguration>> pendingRefresh;
     private volatile ICAPConnectionManager connectionManager;
     private volatile boolean maxConnectionsLogged;
     
@@ -45,7 +53,8 @@ public final class ICAPClientFactory {
      * Constructor
      */
     private ICAPClientFactory() {
-        serviceCache = new ConcurrentHashMap<ICAPServiceInformation, ICAPRemoteServiceConfiguration>();
+        serviceCache = new ConcurrentHashMap<String, ICAPRemoteServiceConfiguration>();
+        pendingRefresh = new ConcurrentHashMap<String, CompletableFuture<ICAPRemoteServiceConfiguration>>();
         connectionManager = new ICAPConnectionManagerImpl();
     }
 
@@ -80,8 +89,13 @@ public final class ICAPClientFactory {
         if (connectionManager == null) {
             throw new IllegalArgumentException("Invalid connection manager!");
         }
-        
+
+        // the pooled connections of the replaced manager are not used anymore
+        ICAPConnectionManager previousConnectionManager = this.connectionManager;
         this.connectionManager = connectionManager;
+        if (previousConnectionManager != null && previousConnectionManager != connectionManager) {
+            previousConnectionManager.closePool();
+        }
     }
 
 
@@ -96,7 +110,7 @@ public final class ICAPClientFactory {
     /**
      * Get the ICAP client
      *
-     * @param icapUrl the icap url, e.g. icap://localhost:1344/srv_clamav or icaps://localhost:1344/srv_clamav
+     * @param icapUrl the icap url, e.g. icap://localhost:1344/srv_clamav or icaps://localhost:1344/srv_clamav; null, empty or blank for a client without ICAP server which supports only FILEMOD
      * @return the ICAP client
      * @throws IOException In case of an I/O error
      * @throws MalformedURLException In case of an invalid URL
@@ -138,7 +152,7 @@ public final class ICAPClientFactory {
     /**
      * Get the ICAP client
      *
-     * @param icapUrl the icap url, e.g. icap://localhost:1344/srv_clamav or icaps://localhost:1344/srv_clamav
+     * @param icapUrl the icap url, e.g. icap://localhost:1344/srv_clamav or icaps://localhost:1344/srv_clamav; null, empty or blank for a client without ICAP server which supports only FILEMOD
      * @param cacheMaxAgeInSeconds the max age in seconds of the cache
      * @return the ICAP client
      * @throws MalformedURLException In case of an invalid URL
@@ -147,7 +161,8 @@ public final class ICAPClientFactory {
     public ICAPClient getICAPClient(String icapUrl, int cacheMaxAgeInSeconds) throws MalformedURLException, IOException {
         
         if (icapUrl == null || icapUrl.isBlank()) {
-            throw new MalformedURLException("Invalid icap url!");
+            // without ICAP server only FILEMOD is supported: the content is checked by a local virus scanner
+            return new ICAPClientImpl(getICAPConnectionManager(), null, null);
         }
         
         String url = icapUrl.trim();
@@ -169,13 +184,46 @@ public final class ICAPClientFactory {
         }
         
         String hostName = url.trim();
-        int servicePort = 1344;
-        idx = url.indexOf(':');
-        if (idx > 0) {
-            hostName = url.substring(0, idx).trim();
-            servicePort = Integer.parseInt(url.substring(idx + 1).trim());
+        String portPart = null;
+        if (hostName.startsWith("[")) {
+            // IPv6 literal, e.g. icap://[::1]:1344/srv_clamav
+            idx = hostName.indexOf(']');
+            if (idx < 0) {
+                throw new MalformedURLException("Invalid icap url, missing closing bracket of IPv6 address!");
+            }
+
+            String rest = hostName.substring(idx + 1).trim();
+            hostName = hostName.substring(1, idx).trim();
+            if (rest.startsWith(":")) {
+                portPart = rest.substring(1).trim();
+            } else if (!rest.isEmpty()) {
+                throw new MalformedURLException("Invalid icap url, unexpected characters after IPv6 address!");
+            }
+        } else {
+            idx = hostName.indexOf(':');
+            if (idx >= 0) {
+                portPart = hostName.substring(idx + 1).trim();
+                hostName = hostName.substring(0, idx).trim();
+            }
         }
-        
+
+        if (hostName.isEmpty()) {
+            throw new MalformedURLException("Invalid icap url, missing host name!");
+        }
+
+        int servicePort = 1344;
+        if (portPart != null) {
+            try {
+                servicePort = Integer.parseInt(portPart);
+            } catch (NumberFormatException e) {
+                throw new MalformedURLException("Invalid icap url, invalid port [" + portPart + "]!");
+            }
+
+            if (servicePort < 1 || servicePort > 65535) {
+                throw new MalformedURLException("Invalid icap url, port out of range [" + servicePort + "]!");
+            }
+        }
+
         boolean secureConnection = icapUrl.toLowerCase().trim().startsWith("icaps:");
         return getICAPClient(hostName, servicePort, serviceName, secureConnection, cacheMaxAgeInSeconds);
     }
@@ -194,55 +242,139 @@ public final class ICAPClientFactory {
      */
     public ICAPClient getICAPClient(String hostName, int servicePort, String serviceName, boolean secureConnection, int cacheMaxAgeInSeconds) throws IOException {
         ICAPServiceInformation serviceInformation = new ICAPServiceInformation(hostName, servicePort, secureConnection, serviceName, cacheMaxAgeInSeconds);
-        ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(serviceInformation);
-        boolean isStale = isCacheStale(remoteServiceConfiguration, serviceInformation);
+        final String cacheKey = createCacheKey(serviceInformation);
+        ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(cacheKey);
+        boolean staleUsable = remoteServiceConfiguration != null && getAge(remoteServiceConfiguration) <= MAX_CACHE_ENTRY_AGE;
 
-        if (isStale) {
-            synchronized (serviceCache) {
-                // double-check after acquiring lock
-                remoteServiceConfiguration = serviceCache.get(serviceInformation);
-                isStale = isCacheStale(remoteServiceConfiguration, serviceInformation);
-
-                if (isStale) {
-                    try {
-                        ICAPClientImpl clientImpl = new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, null);
-                        remoteServiceConfiguration = clientImpl.options();
-                        serviceCache.put(serviceInformation, remoteServiceConfiguration);
-
-                        // Apply server-advertised Max-Connections to pool (RFC 3507 §4.10)
-                        if (remoteServiceConfiguration.getMaxConnections() > 0 && connectionManager.isPoolingEnabled()) {
-                            int serverMax = remoteServiceConfiguration.getMaxConnections();
-                            int currentMax = connectionManager.getMaxPoolConnectionsPerHost();
-                            if (currentMax > serverMax) {
-                                if (!maxConnectionsLogged) {
-                                    maxConnectionsLogged = true;
-                                    LOG.warn("Pool setting (" + currentMax + ") exceeds server Max-Connections (" + serverMax + "), reducing to server limit.");
-                                }
-                                connectionManager.setMaxPoolConnectionsPerHost(serverMax);
-                            } else if (currentMax < serverMax) {
-                                if (!maxConnectionsLogged) {
-                                    maxConnectionsLogged = true;
-                                    LOG.info("Server allows Max-Connections: " + serverMax + ", keeping user-defined pool setting: " + currentMax + ".");
-                                }
-                            }
-                        }
-
-                        LOG.debug("Set remote service configuration cache: " + serviceInformation);
-                    } catch (IOException e) {
-                        LOG.debug("Could not get options from remote icap-server: " + e.getMessage(), e);
+        if (isCacheStale(remoteServiceConfiguration, serviceInformation)) {
+            if (staleUsable && isRefreshBackoff(cacheKey)) {
+                // a refresh failed recently, don't delay every call with a new attempt
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Use stale configuration, the last refresh failed recently: " + serviceInformation);
+                }
+            } else {
+                try {
+                    remoteServiceConfiguration = refreshServiceConfiguration(serviceInformation);
+                    refreshFailures.remove(cacheKey);
+                } catch (IOException e) {
+                    if (!staleUsable) {
                         throw e;
+                    }
+
+                    // serve the stale configuration instead of failing all requests
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Could not refresh options from remote icap-server " + serviceInformation + ": " + e.getMessage(), e);
+                    }
+                    if (markRefreshFailure(cacheKey)) {
+                        LOG.warn("Could not refresh options from remote icap-server " + serviceInformation + ", use stale configuration: " + e.getMessage());
                     }
                 }
             }
         } else {
             if (LOG.isDebugEnabled()) {
                 long effectiveTTL = getEffectiveTTL(remoteServiceConfiguration, serviceInformation);
-                long diff = effectiveTTL - (Instant.now().getEpochSecond() - remoteServiceConfiguration.getTimestamp().getEpochSecond());
+                long diff = effectiveTTL - getAge(remoteServiceConfiguration);
                 LOG.debug("Found remote service configuration in cache (valid for " + diff + " seconds): " + serviceInformation);
             }
         }
 
         return new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, remoteServiceConfiguration);
+    }
+
+
+    /**
+     * Refresh the remote service configuration. Only one refresh per service runs at the same time; concurrent callers
+     * of the same service wait for its result, callers of other services are not blocked.
+     *
+     * @param serviceInformation the service information
+     * @return the remote service configuration
+     * @throws IOException In case of an I/O error
+     */
+    private ICAPRemoteServiceConfiguration refreshServiceConfiguration(ICAPServiceInformation serviceInformation) throws IOException {
+        final String cacheKey = createCacheKey(serviceInformation);
+        CompletableFuture<ICAPRemoteServiceConfiguration> future = new CompletableFuture<>();
+        CompletableFuture<ICAPRemoteServiceConfiguration> inFlight = pendingRefresh.putIfAbsent(cacheKey, future);
+        if (inFlight != null) {
+            return awaitRefresh(inFlight);
+        }
+
+        try {
+            // double-check: another thread may have refreshed the cache in between
+            ICAPRemoteServiceConfiguration remoteServiceConfiguration = serviceCache.get(cacheKey);
+            if (isCacheStale(remoteServiceConfiguration, serviceInformation)) {
+                remoteServiceConfiguration = fetchServiceConfiguration(serviceInformation);
+            }
+
+            future.complete(remoteServiceConfiguration);
+            return remoteServiceConfiguration;
+        } catch (IOException | RuntimeException e) {
+            future.completeExceptionally(e);
+            throw e;
+        } finally {
+            pendingRefresh.remove(cacheKey, future);
+        }
+    }
+
+
+    /**
+     * Wait for a refresh of another thread.
+     *
+     * @param inFlight the refresh in progress
+     * @return the remote service configuration
+     * @throws InterruptedIOException In case the thread was interrupted while waiting
+     * @throws IOException In case the refresh failed
+     */
+    private ICAPRemoteServiceConfiguration awaitRefresh(CompletableFuture<ICAPRemoteServiceConfiguration> inFlight) throws IOException {
+        try {
+            return inFlight.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("Interrupted while waiting for options of remote icap-server");
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            }
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new IOException(cause);
+        }
+    }
+
+
+    /**
+     * Fetch the remote service configuration from the server and update the cache.
+     *
+     * @param serviceInformation the service information
+     * @return the remote service configuration
+     * @throws IOException In case of an I/O error
+     */
+    private ICAPRemoteServiceConfiguration fetchServiceConfiguration(ICAPServiceInformation serviceInformation) throws IOException {
+        ICAPClientImpl clientImpl = new ICAPClientImpl(getICAPConnectionManager(), serviceInformation, null);
+        ICAPRemoteServiceConfiguration remoteServiceConfiguration = clientImpl.options();
+        serviceCache.put(createCacheKey(serviceInformation), remoteServiceConfiguration);
+        evictOldCacheEntries();
+
+        // Apply server-advertised Max-Connections to the pool of this host only (RFC 3507 §4.10)
+        ICAPConnectionManager currentConnectionManager = connectionManager;
+        int serverMax = remoteServiceConfiguration.getMaxConnections();
+        currentConnectionManager.setServerMaxConnections(serviceInformation.getHostName(), serviceInformation.getServicePort(), serviceInformation.isSecureConnection(), serverMax);
+        if (serverMax > 0 && currentConnectionManager.isPoolingEnabled() && !maxConnectionsLogged) {
+            int currentMax = currentConnectionManager.getMaxPoolConnectionsPerHost();
+            if (currentMax > serverMax) {
+                maxConnectionsLogged = true;
+                LOG.warn("Pool setting (" + currentMax + ") exceeds server Max-Connections (" + serverMax + ") of " + serviceInformation + ", limit the pool of this server.");
+            } else if (currentMax < serverMax) {
+                maxConnectionsLogged = true;
+                LOG.info("Server allows Max-Connections: " + serverMax + ", keeping user-defined pool setting: " + currentMax + ".");
+            }
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Set remote service configuration cache: " + serviceInformation);
+        }
+        return remoteServiceConfiguration;
     }
 
 
@@ -258,22 +390,90 @@ public final class ICAPClientFactory {
             return true;
         }
         long effectiveTTL = getEffectiveTTL(config, serviceInformation);
-        return (Instant.now().getEpochSecond() - config.getTimestamp().getEpochSecond()) > effectiveTTL;
+        return getAge(config) > effectiveTTL;
     }
 
 
     /**
-     * Get the effective TTL in seconds. Uses the server-advertised Options-TTL (RFC 3507 §4.10) if available,
-     * otherwise falls back to the client-configured cacheMaxAgeInSeconds.
+     * Get the effective TTL in seconds. The server-advertised Options-TTL (RFC 3507 §4.10) can only shorten the
+     * client-configured cacheMaxAgeInSeconds, but not below a minimum, to avoid an options request on every call.
      *
      * @param config the remote service configuration
      * @param serviceInformation the service information
      * @return the effective TTL in seconds
      */
     private long getEffectiveTTL(ICAPRemoteServiceConfiguration config, ICAPServiceInformation serviceInformation) {
+        long effectiveTTL = serviceInformation.getCacheMaxAgeInSeconds();
         if (config.getOptionsTTL() > 0) {
-            return config.getOptionsTTL();
+            long serverTTL = Math.max(config.getOptionsTTL(), MIN_OPTIONS_TTL);
+            if (serverTTL < effectiveTTL) {
+                effectiveTTL = serverTTL;
+            }
         }
-        return serviceInformation.getCacheMaxAgeInSeconds();
+        return effectiveTTL;
+    }
+
+
+    /**
+     * Get the age in seconds of a configuration
+     *
+     * @param config the remote service configuration
+     * @return the age in seconds
+     */
+    private long getAge(ICAPRemoteServiceConfiguration config) {
+        if (config.getTimestamp() == null) {
+            return Long.MAX_VALUE;
+        }
+        return Instant.now().getEpochSecond() - config.getTimestamp().getEpochSecond();
+    }
+
+
+    /**
+     * Check if a refresh failed within the backoff time.
+     *
+     * @param cacheKey the cache key
+     * @return true if a new refresh should not be tried yet
+     */
+    private boolean isRefreshBackoff(String cacheKey) {
+        Long failedAt = refreshFailures.get(cacheKey);
+        return failedAt != null && (System.currentTimeMillis() - failedAt.longValue()) < REFRESH_BACKOFF_MS;
+    }
+
+
+    /**
+     * Mark a failed refresh.
+     *
+     * @param cacheKey the cache key
+     * @return true if it is the first failure within the backoff time, so it should be logged
+     */
+    private boolean markRefreshFailure(String cacheKey) {
+        long now = System.currentTimeMillis();
+        Long previous = refreshFailures.put(cacheKey, now);
+        return previous == null || (now - previous.longValue()) >= REFRESH_BACKOFF_MS;
+    }
+
+
+    /**
+     * Remove cache entries which are too old to be used, even as fallback.
+     */
+    private void evictOldCacheEntries() {
+        serviceCache.entrySet().removeIf(e -> getAge(e.getValue()) > MAX_CACHE_ENTRY_AGE);
+        refreshFailures.entrySet().removeIf(e -> !serviceCache.containsKey(e.getKey()));
+    }
+
+
+    /**
+     * Create the cache key of a service. The cache max age is not part of the key, the options of a service are
+     * the same for all callers.
+     *
+     * @param serviceInformation the service information
+     * @return the cache key
+     */
+    private String createCacheKey(ICAPServiceInformation serviceInformation) {
+        String scheme = "icap";
+        if (serviceInformation.isSecureConnection()) {
+            scheme = "icaps";
+        }
+        return scheme + "://" + serviceInformation.getHostName().toLowerCase() + ":" + serviceInformation.getServicePort() + "/" + serviceInformation.getServiceName();
     }
 }

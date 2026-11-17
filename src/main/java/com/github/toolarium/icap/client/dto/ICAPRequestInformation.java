@@ -22,6 +22,9 @@ public class ICAPRequestInformation implements Serializable {
     /** API version */
     public static final String API_VERSION = "1.0";
 
+    /** Default time in milliseconds to wait for the local virus scanner in FILEMOD */
+    public static final Integer DEFAULT_FILE_SCAN_WAIT_TIME = 1000;
+
     private static final String SEPARATOR = ", ";
     private static final long serialVersionUID = -39683746075058963L;
     private String userAgent = USER_AGENT;
@@ -32,6 +35,9 @@ public class ICAPRequestInformation implements Serializable {
     private String authorization;
     private Integer maxConnectionTimeout;
     private Integer maxReadTimeout;
+    private Integer maxRequestTimeout;
+    private Integer fileScanWaitTime;
+    private Long fileScanMaxSize;
     private Map<String, String> customHeaders;
 
 
@@ -71,6 +77,9 @@ public class ICAPRequestInformation implements Serializable {
         this.allow204 = allow204;
         this.maxConnectionTimeout = null;
         this.maxReadTimeout = null;
+        this.maxRequestTimeout = null;
+        this.fileScanWaitTime = DEFAULT_FILE_SCAN_WAIT_TIME;
+        this.fileScanMaxSize = null;
         this.customHeaders = null;
     }
 
@@ -262,6 +271,79 @@ public class ICAPRequestInformation implements Serializable {
         this.maxReadTimeout = maxReadTimeout;
         return this;
     }
+
+
+    /**
+     * Get the max total request timeout in milliseconds. By default there is no limit (null).
+     * It limits the whole request including connect retries, sending and receiving, e.g. against
+     * a server which sends the response very slowly. A timeout of null or zero means no limit.
+     *
+     * @return the max total request timeout
+     */
+    public Integer getMaxRequestTimeout() {
+        return maxRequestTimeout;
+    }
+
+
+    /**
+     * Set the max total request timeout in milliseconds. By default there is no limit (null).
+     * It limits the whole request including connect retries, sending and receiving, e.g. against
+     * a server which sends the response very slowly. A timeout of null or zero means no limit.
+     *
+     * @param maxRequestTimeout the max total request timeout
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation maxRequestTimeout(Integer maxRequestTimeout) {
+        this.maxRequestTimeout = maxRequestTimeout;
+        return this;
+    }
+
+
+    /**
+     * Get the time in milliseconds to wait for the local virus scanner in FILEMOD. By default it is 1000 milliseconds (1 second).
+     *
+     * @return the wait time in milliseconds
+     */
+    public Integer getFileScanWaitTime() {
+        return fileScanWaitTime;
+    }
+
+
+    /**
+     * Set the time in milliseconds to wait for the local virus scanner in FILEMOD. By default it is 1000 milliseconds (1 second).
+     * During this time the written file is checked; a file which was deleted by the virus scanner is a detected threat.
+     * A value of null uses the default.
+     *
+     * @param fileScanWaitTime the wait time in milliseconds or null for the default
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation fileScanWaitTime(Integer fileScanWaitTime) {
+        this.fileScanWaitTime = fileScanWaitTime;
+        return this;
+    }
+
+
+    /**
+     * Get the max size in bytes of a resource in FILEMOD. By default (null) there is no limit.
+     *
+     * @return the max size in bytes or null if there is no limit
+     */
+    public Long getFileScanMaxSize() {
+        return fileScanMaxSize;
+    }
+
+
+    /**
+     * Set the max size in bytes of a resource in FILEMOD, a bigger resource is rejected with an IOException.
+     * By default (null) there is no limit.
+     *
+     * @param fileScanMaxSize the max size in bytes or null for no limit
+     * @return the ICAPRequestInformation
+     */
+    public ICAPRequestInformation fileScanMaxSize(Long fileScanMaxSize) {
+        this.fileScanMaxSize = fileScanMaxSize;
+        return this;
+    }
     
     
     /**
@@ -308,7 +390,7 @@ public class ICAPRequestInformation implements Serializable {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(allow204, apiVersion, authorization, customHeaders, maxConnectionTimeout, maxReadTimeout, requestSource, userAgent, username);
+        return Objects.hash(allow204, apiVersion, authorization, customHeaders, maxConnectionTimeout, maxReadTimeout, maxRequestTimeout, fileScanWaitTime, fileScanMaxSize, requestSource, userAgent, username);
     }
 
 
@@ -335,6 +417,9 @@ public class ICAPRequestInformation implements Serializable {
                 && Objects.equals(customHeaders, other.customHeaders)
                 && Objects.equals(maxConnectionTimeout, other.maxConnectionTimeout)
                 && Objects.equals(maxReadTimeout, other.maxReadTimeout)
+                && Objects.equals(maxRequestTimeout, other.maxRequestTimeout)
+                && Objects.equals(fileScanWaitTime, other.fileScanWaitTime)
+                && Objects.equals(fileScanMaxSize, other.fileScanMaxSize)
                 && Objects.equals(requestSource, other.requestSource) && Objects.equals(userAgent, other.userAgent)
                 && Objects.equals(username, other.username);
     }
@@ -349,7 +434,7 @@ public class ICAPRequestInformation implements Serializable {
                 + username + ", requestSource=" + requestSource + ", allow204=" + allow204
                 + ", authorization=" + maskAuthorization()
                 + ", maxConnectionTimeout=" + maxConnectionTimeout + ", maxReadTimeout=" + maxReadTimeout
-                + ", customHeaders=" + customHeaders + "]";
+                + ", maxRequestTimeout=" + maxRequestTimeout + ", fileScanWaitTime=" + fileScanWaitTime + ", fileScanMaxSize=" + fileScanMaxSize + ", customHeaders=" + customHeaders + "]";
     }
 
     

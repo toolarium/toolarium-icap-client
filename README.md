@@ -14,6 +14,7 @@ This library fully implements the ICAP protocol as specified in [RFC 3507](https
 - **REQMOD** - Request modification mode for adapting HTTP requests before forwarding
 - **RESPMOD** - Response modification mode for post-processing origin server responses
 - **OPTIONS** - Query server capabilities, supported methods, preview size and service configuration
+- **FILEMOD** - Extension of this library (not part of RFC 3507) for a local virus scanner without ICAP server, see [FILEMOD](#filemod-local-virus-scanner)
 
 ### Message Format and Headers (RFC 3507 §4.3 - §4.4)
 - **ICAP request line** - Absolute URI format `icap://host:port/service ICAP/1.0`
@@ -283,6 +284,37 @@ resource.isConsumed(); // false before validateResource, true after
 ```
 
 
+## FILEMOD (local virus scanner)
+
+`ICAPMode.FILEMOD` is an extension of this library and not part of RFC 3507. The content is checked by a virus scanner on the same host, e.g. an on-access scanner inside the container of the application. The ICAP server is not used, also if an ICAP url is defined:
+
+1. The whole content is written to a temporary file in `java.io.tmpdir`, so the local virus scanner can check it. The file keeps the extension of the resource name (e.g. `icap-123.docx`), because some virus scanners decide by the extension how a file is scanned. If the write is blocked, the virus scanner found a threat.
+2. The file is read back: if the access is blocked or the content was modified, the virus scanner found a threat.
+3. The client waits for the virus scanner (by default 1 second): if the file was deleted, the virus scanner found a threat.
+4. The result is reported as an ICAP server would do it: status `204` for a valid resource, a `ContentBlockedException` with status `200` for a threat. The temporary file is always deleted after the check.
+
+Without ICAP server the client is created with an empty url (`null`, empty or blank); such a client supports only FILEMOD, other modes throw a `MalformedURLException`:
+
+```java
+try {
+    ICAPHeaderInformation info = ICAPClientFactory.getInstance()
+        .getICAPClient((String) null)
+        .validateResource(ICAPMode.FILEMOD,
+                          new ICAPRequestInformation(username, requestSource).fileScanWaitTime(1000),
+                          new ICAPResource(file.toPath()));
+    // valid: the local virus scanner found no threat
+} catch (ContentBlockedException e) {
+    // blocked: the local virus scanner deleted, blocked or modified the temporary file
+}
+```
+
+Notes:
+- The local virus scanner must check the temporary directory of the JVM (`java.io.tmpdir`).
+- `fileScanWaitTime` defines how long the client waits for the virus scanner (milliseconds, default 1000). Each valid resource takes at least this time; with a virus scanner which blocks an infected file immediately, it can be set to 0.
+- `fileScanMaxSize` limits the size of a resource (bytes, by default no limit); a bigger resource is rejected with an `IOException`.
+- REQMOD and RESPMOD don't write temporary files.
+
+
 ## Authentication
 
 ICAP authentication (RFC 3507 §7.1) is supported via the `Authorization` header. It can be configured once per client using default request information, or per-request:
@@ -310,8 +342,8 @@ The library parses the following server-advertised fields from the OPTIONS respo
 
 | Field | Description |
 |---|---|
-| `Options-TTL` | Cache TTL in seconds. Used instead of the client-configured default when available. |
-| `Max-Connections` | Maximum parallel connections. Applied to the connection pool automatically. |
+| `Options-TTL` | Cache TTL in seconds. It can only shorten the client-configured cache time (minimum 10 seconds). |
+| `Max-Connections` | Maximum parallel connections. It limits the connection pool of this server. |
 | `Service-ID` | Service identifier. |
 | `Transfer-Preview` | File extensions for which preview is useful. |
 | `Transfer-Ignore` | File extensions to transfer without preview. |
@@ -354,12 +386,34 @@ ICAPClientFactory.getInstance().closePool();
 > **Note:** Connection pooling requires the ICAP server to support keep-alive connections. Pooling is disabled by default (pool size 0). Sockets are only reused when the server responds with `Connection: keep-alive`.
 
 
+## Timeouts
+The timeouts can be defined per request in the `ICAPRequestInformation` (milliseconds):
+
+```java
+ICAPRequestInformation requestInformation = new ICAPRequestInformation(username, requestSource)
+    .maxConnectionTimeout(10000)    // connection setup, default 30 seconds
+    .maxReadTimeout(30000)          // wait time for data of the server, default 60 seconds
+    .maxRequestTimeout(120000);     // optional: total time of the whole request including a stalled upload, by default no limit
+```
+
+The default connection and read timeouts can also be set on the connection manager (`setDefaultSocketConnectionTimeout`, `setDefaultSocketReadTimeout`). Connection attempts are retried, at most 60 seconds in total.
+
+
 ## Secure connection
 To support secured connection you can either pass by the getICAPClient a icaps:// url or enable the secure connection by
 
 ```java
 ICAPClientFactory.getInstance().getICAPClient(hostName, port, serviceName, true).validateResource(....);
 ```
+
+The hostname of the server certificate is verified. A custom SSL configuration, e.g. an own trust store or a client certificate, can be set by an `SSLSocketFactory`:
+
+```java
+SSLContext sslContext = ...; // e.g. initialized with own key and trust managers
+ICAPClientFactory.getInstance().getICAPConnectionManager().setSSLSocketFactory(sslContext.getSocketFactory());
+```
+
+IPv6 addresses are supported in the url, e.g. `icaps://[::1]:1344/srv_clamav`.
 
 For additional requirements regarding the connection the ICAPConnectionManager can bet set in the ICAPClientFcatory. 
 The simplest way is to extend the default implementation ``com.github.toolarium.icap.client.impl.ICAPConnectionManagerImpl`` and overwrite the 

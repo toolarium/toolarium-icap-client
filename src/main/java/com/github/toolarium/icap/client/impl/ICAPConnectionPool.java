@@ -28,6 +28,7 @@ public class ICAPConnectionPool {
     private static final long DEFAULT_IDLE_TIMEOUT_MS = 60000;
 
     private final Map<String, Deque<PooledSocket>> pool;
+    private final Map<String, Integer> serverMaxConnections;
     private volatile int maxConnectionsPerHost;
     private volatile long idleTimeoutMs;
 
@@ -48,6 +49,7 @@ public class ICAPConnectionPool {
      */
     public ICAPConnectionPool(int maxConnectionsPerHost, long idleTimeoutMs) {
         this.pool = new ConcurrentHashMap<>();
+        this.serverMaxConnections = new ConcurrentHashMap<>();
         this.maxConnectionsPerHost = maxConnectionsPerHost;
         this.idleTimeoutMs = idleTimeoutMs;
     }
@@ -70,6 +72,38 @@ public class ICAPConnectionPool {
      */
     public void setMaxConnectionsPerHost(int maxConnectionsPerHost) {
         this.maxConnectionsPerHost = maxConnectionsPerHost;
+    }
+
+
+    /**
+     * Set the server-advertised maximum connections of a specific host (RFC 3507 §4.10). It limits only the pool of
+     * this host and only if it is lower than the general maximum connections per host.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     * @param maxConnections the server maximum connections; a value &lt;= 0 removes the limit
+     */
+    public void setServerMaxConnections(String hostname, int port, boolean secureConnection, int maxConnections) {
+        String key = createKey(hostname, port, secureConnection);
+        if (maxConnections > 0) {
+            serverMaxConnections.put(key, maxConnections);
+        } else {
+            serverMaxConnections.remove(key);
+        }
+    }
+
+
+    /**
+     * Get the effective maximum connections of a specific host.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     * @return the effective maximum connections
+     */
+    public int getEffectiveMaxConnections(String hostname, int port, boolean secureConnection) {
+        return getEffectiveMaxConnectionsOfKey(createKey(hostname, port, secureConnection));
     }
 
 
@@ -110,8 +144,9 @@ public class ICAPConnectionPool {
 
         evictExpired(hostPool);
 
+        // reuse the most recently returned connection first, it is the least likely to be closed by the server
         PooledSocket pooled;
-        while ((pooled = hostPool.pollFirst()) != null) {
+        while ((pooled = hostPool.pollLast()) != null) {
             if (isSocketValid(pooled)) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Reusing pooled connection to [" + key + "]");
@@ -142,20 +177,46 @@ public class ICAPConnectionPool {
         String key = createKey(hostname, port, secureConnection);
         Deque<PooledSocket> hostPool = pool.computeIfAbsent(key, k -> new ConcurrentLinkedDeque<>());
 
-        evictExpired(hostPool);
+        int maxConnections = getEffectiveMaxConnectionsOfKey(key);
 
-        if (hostPool.size() >= maxConnectionsPerHost) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Pool full for [" + key + "], closing socket");
+        // check and add atomically, otherwise concurrent releases can exceed the limit
+        synchronized (hostPool) {
+            evictExpired(hostPool);
+
+            int size = hostPool.size();
+            if (size >= maxConnections) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Pool full for [" + key + "], closing socket");
+                }
+                closeQuietly(socket);
+                return;
             }
-            closeQuietly(socket);
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Returning connection to pool [" + key + "], pool size: " + (size + 1));
+            }
+            hostPool.addLast(new PooledSocket(socket));
+        }
+    }
+
+
+    /**
+     * Close all pooled connections of a specific host.
+     *
+     * @param hostname the hostname
+     * @param port the port
+     * @param secureConnection true for SSL connections
+     */
+    public void evict(String hostname, int port, boolean secureConnection) {
+        Deque<PooledSocket> hostPool = pool.get(createKey(hostname, port, secureConnection));
+        if (hostPool == null) {
             return;
         }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Returning connection to pool [" + key + "], pool size: " + (hostPool.size() + 1));
+        PooledSocket pooled;
+        while ((pooled = hostPool.pollFirst()) != null) {
+            closeQuietly(pooled.getSocket());
         }
-        hostPool.addLast(new PooledSocket(socket));
     }
 
 
@@ -202,6 +263,22 @@ public class ICAPConnectionPool {
             scheme = "ssl";
         }
         return hostname + ":" + port + ":" + scheme;
+    }
+
+
+    /**
+     * Get the effective maximum connections of a pool key.
+     *
+     * @param key the pool key
+     * @return the effective maximum connections
+     */
+    private int getEffectiveMaxConnectionsOfKey(String key) {
+        int maxConnections = maxConnectionsPerHost;
+        Integer serverMax = serverMaxConnections.get(key);
+        if (serverMax != null && serverMax.intValue() < maxConnections) {
+            maxConnections = serverMax.intValue();
+        }
+        return maxConnections;
     }
 
 

@@ -20,6 +20,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +37,17 @@ public class ICAPSocketTimeoutTest {
     private static final String SERVICENAME = "srv_clamav";
     private static final Logger LOG = LoggerFactory.getLogger(ICAPSocketTimeoutTest.class);
 
-    
+
+    /**
+     * Reset the timeouts of the shared connection manager, otherwise the following tests use the short timeouts of this test
+     */
+    @AfterEach
+    public void resetTimeouts() {
+        ICAPClientFactory.getInstance().getICAPConnectionManager().setDefaultSocketConnectionTimeout(30000);
+        ICAPClientFactory.getInstance().getICAPConnectionManager().setDefaultSocketReadTimeout(60000);
+    }
+
+
     /**
      * Socket timeout
      */

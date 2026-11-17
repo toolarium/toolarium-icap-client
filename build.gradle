@@ -14,3 +14,15 @@ dependencies {
     implementation "org.slf4j:slf4j-api:${commonGradleSlf4jApiVersion}"
     testRuntimeOnly "ch.qos.logback:logback-classic:${commonGradleLogbackVersion}"
 }
+
+
+/****************************************************************************************
+ * Exclude test resources (e.g. virus samples) from the sources jar, except logback.xml
+ ****************************************************************************************/
+sourcesJar {
+    eachFile { details ->
+        if (details.path.startsWith('src/test/resources/') && details.name != 'logback.xml') {
+            details.exclude()
+        }
+    }
+}

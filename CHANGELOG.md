@@ -5,7 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [ 1.4.4 ] - 2026-08-02
+## [ 1.4.4 ] - 2026-11-17
+### Added
+- Optional maximum total request time.
+- Support for IPv6 addresses in ICAP URLs.
+- A resource created from a file closes the file after it was scanned.
+- Custom SSL configuration (trust store, client certificate) for secure connections.
+- Optional wait time for the local virus scanner in FILEMOD (default 1 second).
+- Optional maximum size of a resource in FILEMOD.
+
+### Changed
+- Excluded the test resources (e.g. virus test samples) from the sources jar.
+- Content blocked by the ICAP server with a block page is reported as blocked.
+- A resource with length 0 but with content is scanned instead of passing unscanned.
+- Lower memory and disk usage when scanning; only FILEMOD writes a temporary file.
+- FILEMOD works without ICAP server: the content is checked by a local virus scanner; a deleted, blocked or modified temporary file is reported as blocked content.
+- A client created with an empty ICAP url supports only FILEMOD.
+- FILEMOD returns the status 204 for a valid resource and 200 for a threat; the temporary file keeps the extension of the resource name.
+- Requests to other ICAP servers are no longer delayed by an unavailable server; cached server options are used if they can not be refreshed.
+- The server limit of connections applies only to the pool of that server.
+- The options lifetime of the server can only shorten the configured cache time.
+- Cached server options are shared independent of the configured cache time and removed when they are outdated.
+- Credentials are no longer written to debug logs.
+- Invalid ICAP URLs are reported as malformed.
+- A resource stream which is longer than the declared length is scanned completely.
+- The maximum request time also limits a stalled upload and the connection setup.
+- The response content of the server is limited in size.
+- A pooled connection which was closed by the server is replaced by a new connection.
+- After a failed refresh of the server options, the cached options are used for 30 seconds without a new attempt.
+- Invalid values for the ICAP request line (API version, host, service) are rejected.
+- Replacing the connection manager closes the pooled connections of the previous one.
+
+### Fixed
+- Threats reported by the server in lower case headers were not detected.
+- Wrong requests for resource streams which deliver data in small parts, are shorter than declared, or contain non-ASCII request information.
+- Requests hung until the read timeout for servers with preview size 0 or responses without content.
+- Concurrent scans of the same resource.
+- Reuse of pooled connections with unread response data.
+- Errors on unexpected server option responses.
+- Faster failure when a server is not reachable.
+- Connection leak when a secure connection could not be established.
+- The content comparison did not mark modified content as not identical.
+- Content replaced by a block page of the server was not detected for responses.
+- Status lines without reason phrase were not accepted.
+- Server values in log messages could contain control characters.
+- A resource could not be serialized.
 
 ## [ 1.4.3 ] - 2026-08-02
 ### Fixed
